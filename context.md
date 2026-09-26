@@ -9,8 +9,8 @@ Single source of truth for project progress. **Read before starting any work; up
 - **Stage:** executing plan inline (user chose Native); ledger at `.superpowers/sdd/2026-09-26-phase-1-local-editor/progress.md` (git-ignored)
 - **Spec:** `docs/superpowers/specs/2026-09-26-phase-1-local-editor-design.md`
 - **Plan:** `docs/superpowers/plans/2026-09-26-phase-1-local-editor.md` (14 tasks)
-- **Done:** Task 1
-- **Next step:** Task 2 (design system port)
+- **Done:** Tasks 1–2
+- **Next step:** Task 3 (store foundation)
 - **Blockers to clear before Task 13/14:** Docker Desktop daemon not running at planning time; `gh` token for `pavannaik2004` invalid (needs `gh auth login`)
 
 ## Key references
@@ -23,7 +23,7 @@ Single source of truth for project progress. **Read before starting any work; up
 
 | Phase | Status |
 | --- | --- |
-| 1. Local editor | In progress — implementing (Task 1/14 done) |
+| 1. Local editor | In progress — implementing (Task 2/14 done) |
 | 2. Technical rendering | Not started |
 | 3. Customization and export | Not started |
 | 4. Backend foundation | Not started |
@@ -40,3 +40,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — `git init`, remote `origin` added. Created `context.md`, `decisions.md`, `README.md`, `.gitignore`. Wrote Phase 1 design spec.
 - 2026-09-26 — User approved spec. Checked current package versions (Vite 8, Vitest 5, React 18.3, TS 6.0, Dexie 4.4, CodeMirror 6) and nginx tags. Wrote Phase 1 implementation plan (14 tasks); updated spec (dialogs module, `listProjectSummaries`, nginx 1.28, `npm test`). Decisions P-012…P-018.
 - 2026-09-26 — User chose Native (inline) execution. Task 1: frontend scaffold (Vite 8.3, React 18.3.1, TS 6.0, Vitest 5.0, jsdom 29.1, ESLint 10, Dexie 4.4, CodeMirror 6), `.gitattributes` (LF), `debounce` + 4 tests; lint/typecheck/build clean.
+- 2026-09-26 — Task 2: design system ported to `frontend/src/ui/` (tokens.css, components.css, 17 components incl. new MenuButton), snapshot in `docs/design-system/`, self-hosted fonts; 9 ui tests. Input now uses a separate <label> so hint/error text is not part of the field name (added to P-013).
