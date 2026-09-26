@@ -15,3 +15,8 @@ if (typeof Range !== 'undefined' && !Range.prototype.getClientRects) {
 if (typeof document !== 'undefined' && !document.elementFromPoint) {
   document.elementFromPoint = () => null;
 }
+
+// jsdom can't make object URLs for its own Blobs; tests only need unique strings.
+let objectUrls = 0;
+URL.createObjectURL = () => `blob:test/${++objectUrls}`;
+URL.revokeObjectURL = () => {};

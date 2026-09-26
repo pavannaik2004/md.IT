@@ -2,7 +2,7 @@ import { createEvent, fireEvent, render, screen, waitFor } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearDatabase, createDocument, createProject, getSetting, saveDocumentContent, SETTINGS } from '../store';
+import { addImage, clearDatabase, createDocument, createFolder, createProject, getSetting, listFolders, saveDocumentContent, SETTINGS } from '../store';
 import { Workspace } from './Workspace';
 
 function renderAt(path: string) {
@@ -23,6 +23,11 @@ async function projectWithDocument(content = '# Hello\n\nWorld') {
   await saveDocumentContent(doc.id, content);
   return { project, doc };
 }
+
+const pngFile = (name: string) => new File(['x'], name, { type: 'image/png' });
+const pngBytes = (name: string) => ({ name, type: 'image/png', bytes: new TextEncoder().encode('x').buffer as ArrayBuffer });
+const fileInput = (container: HTMLElement) => container.querySelector<HTMLInputElement>('input[type="file"]')!;
+const editorText = (container: HTMLElement) => container.querySelector('.cm-content')?.textContent ?? '';
 
 beforeEach(clearDatabase);
 
@@ -99,6 +104,68 @@ describe('Workspace', () => {
     await waitFor(() => expect(notice()).toHaveTextContent('Only links to documents in this project open here.'));
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(notice()).toBeEmptyDOMElement();
+  });
+
+  it('Insert image stores the file next to the document and writes Markdown', async () => {
+    const { project, doc } = await projectWithDocument('# Hello');
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    expect(screen.getByRole('button', { name: 'Insert image' })).toBeEnabled();
+    fireEvent.change(fileInput(container), { target: { files: [pngFile('Screen Shot.png')] } });
+    expect(await screen.findByRole('treeitem', { name: 'images' })).toBeInTheDocument();
+    await waitFor(() => expect(editorText(container)).toContain('![screen-shot](images/screen-shot.png)'));
+    await waitFor(() => expect(container.querySelector('.md-prose img')?.getAttribute('src')).toMatch(/^blob:test\//));
+    expect(screen.getByRole('heading', { level: 1, name: 'Hello' })).toBeInTheDocument(); // the image didn't join the heading
+  });
+
+  it('reports refused files in a notice and creates no folder', async () => {
+    const { project, doc } = await projectWithDocument('# Hello');
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    fireEvent.change(fileInput(container), { target: { files: [new File(['x'], 'notes.txt', { type: 'text/plain' })] } });
+    await waitFor(() => expect(container.querySelector('.ws-notice')).toHaveTextContent('“notes.txt” isn’t a supported image (PNG, JPEG, GIF, WebP or SVG).'));
+    expect(await listFolders(project.id)).toEqual([]);
+  });
+
+  it('shows a stored image referenced by a relative path, and a placeholder for a missing one', async () => {
+    const project = await createProject('OS');
+    const folder = await createFolder(project.id, null, 'images');
+    await addImage(project.id, folder.id, pngBytes('a.png'));
+    const doc = await createDocument(project.id, null, 'Intro');
+    await saveDocumentContent(doc.id, '![A](images/a.png){width=50% align=right}\n\n![B](images/gone.png)');
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await waitFor(() => expect(container.querySelector('.md-prose img')?.getAttribute('src')).toMatch(/^blob:test\//));
+    const img = container.querySelector('.md-prose img')!;
+    expect(img.getAttribute('width')).toBe('50%');
+    expect(img.getAttribute('data-align')).toBe('right');
+    expect(await screen.findByText('Image not found: images/gone.png')).toBeInTheDocument();
+  });
+
+  it('opens a relative link to another document, and explains a missing one', async () => {
+    const project = await createProject('OS');
+    const other = await createDocument(project.id, null, 'Other');
+    await saveDocumentContent(other.id, '# Other page');
+    const doc = await createDocument(project.id, null, 'Intro');
+    await saveDocumentContent(doc.id, '[Go](Other.md) and [Gone](Gone.md)');
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await waitFor(() => expect(container.querySelector('a[data-missing]')).not.toBeNull());
+    fireEvent.click(screen.getByRole('link', { name: 'Gone' }));
+    await waitFor(() => expect(container.querySelector('.ws-notice')).toHaveTextContent('“Gone.md” isn’t in this project.'));
+    fireEvent.click(screen.getByRole('link', { name: 'Go' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Other page' })).toBeInTheDocument();
+  });
+
+  it('inserts an image from the tree at the editor cursor', async () => {
+    const project = await createProject('OS');
+    await addImage(project.id, null, pngBytes('a.png'));
+    const doc = await createDocument(project.id, null, 'Intro');
+    await saveDocumentContent(doc.id, 'Text');
+    const user = userEvent.setup();
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByText('Text', { selector: '.md-prose p' });
+    await user.click(await screen.findByRole('button', { name: 'Actions for a.png' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Insert in document' }));
+    await waitFor(() => expect(editorText(container)).toContain('![a](a.png)'));
   });
 
   it('never renders unsafe HTML from a document', async () => {
