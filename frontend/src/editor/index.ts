@@ -1,1 +1,1 @@
-export { Editor, type EditorProps } from './Editor';
+export { Editor, type EditorHandle, type EditorProps } from './Editor';
