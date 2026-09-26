@@ -9,8 +9,8 @@ Single source of truth for project progress. **Read before starting any work; up
 - **Stage:** executing plan inline (user chose Native); ledger at `.superpowers/sdd/2026-09-26-phase-1-local-editor/progress.md` (git-ignored)
 - **Spec:** `docs/superpowers/specs/2026-09-26-phase-1-local-editor-design.md`
 - **Plan:** `docs/superpowers/plans/2026-09-26-phase-1-local-editor.md` (14 tasks)
-- **Done:** Tasks 1–10
-- **Next step:** Task 11 (file tree)
+- **Done:** Tasks 1–11
+- **Next step:** Task 12 (workspace screen)
 - **Blockers to clear before Task 13/14:** Docker Desktop daemon not running at planning time; `gh` token for `pavannaik2004` invalid (needs `gh auth login`)
 
 ## Key references
@@ -23,7 +23,7 @@ Single source of truth for project progress. **Read before starting any work; up
 
 | Phase | Status |
 | --- | --- |
-| 1. Local editor | In progress — implementing (Task 10/14 done) |
+| 1. Local editor | In progress — implementing (Task 11/14 done) |
 | 2. Technical rendering | Not started |
 | 3. Customization and export | Not started |
 | 4. Backend foundation | Not started |
@@ -49,3 +49,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Task 8: useDocumentDraft: load, 1 s autosave, 150 ms preview debounce, flush on switch/unmount/hide/unload, failure + recovery, deleted-doc save ignored; 12 tests (88 total).
 - 2026-09-26 — Task 9: CodeMirror 6 editor (GFM Markdown, history, Mod-s save, tokens theme, muted highlight) + jsdom polyfills for tests; 6 tests (94 total).
 - 2026-09-26 — Task 10: app shell (router, theme applied from settings, persistent-storage request), project list (create/rename/describe/delete with confirmation, storage warning), MissingPage, text/time helpers, final main.tsx + app.css; 21 tests (115 total). Dev server serves `/` and deep links.
+- 2026-09-26 — Task 11: file tree: nested rows (folders first, natural sort), inline rename with conflict errors, duplicate, Move to… dialog, drag-and-drop, delete confirmation listing contents, closes open doc when deleted; 20 tests (135 total).
