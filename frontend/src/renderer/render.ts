@@ -1,30 +1,27 @@
-import DOMPurify from 'dompurify';
+import DOMPurify, { type Config } from 'dompurify';
 import MarkdownIt from 'markdown-it';
 import taskLists from 'markdown-it-task-lists';
+import type { RenderContext, RenderEnv } from './context';
+import { escapeHtml } from './escape';
+import { images } from './images';
+import { links } from './links';
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: false });
 md.use(taskLists, { enabled: false });
+md.use(links);
+md.use(images);
 
-const renderLinkOpen = md.renderer.rules.link_open ?? ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+// DOMPurify's default URI allow-list plus blob:, the object URLs of images stored in this browser.
+const ALLOWED_URI = /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|blob):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i;
 
-md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
-  const token = tokens[idx]!;
-  if (/^https?:\/\//i.test(String(token.attrGet('href') ?? ''))) {
-    token.attrSet('target', '_blank');
-    token.attrSet('rel', 'noopener noreferrer');
-  }
-  return renderLinkOpen(tokens, idx, options, env, self);
-};
-
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-}
+// Inline style and <style> blocks are dropped: they can smuggle url(javascript:…), and a <style> block would restyle the whole app.
+const SANITIZE: Config = { ADD_ATTR: ['target'], FORBID_ATTR: ['style'], FORBID_TAGS: ['style'], ALLOWED_URI_REGEXP: ALLOWED_URI };
 
 /** Markdown → sanitized HTML. Pure apart from DOMPurify; never throws. */
-export function render(markdown: string): string {
+export function render(markdown: string, context?: RenderContext): string {
   try {
-    // Inline style and <style> blocks are dropped: they can smuggle url(javascript:…), and a <style> block would restyle the whole app.
-    return DOMPurify.sanitize(md.render(markdown), { ADD_ATTR: ['target'], FORBID_ATTR: ['style'], FORBID_TAGS: ['style'] });
+    const env: RenderEnv = { context };
+    return DOMPurify.sanitize(md.render(markdown, env), SANITIZE);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return `<div class="md-render-error">Couldn’t render this document: ${escapeHtml(message)}</div>`;
