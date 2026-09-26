@@ -9,8 +9,8 @@ Single source of truth for project progress. **Read before starting any work; up
 - **Stage:** executing plan inline (user chose Native); ledger at `.superpowers/sdd/2026-09-26-phase-1-local-editor/progress.md` (git-ignored)
 - **Spec:** `docs/superpowers/specs/2026-09-26-phase-1-local-editor-design.md`
 - **Plan:** `docs/superpowers/plans/2026-09-26-phase-1-local-editor.md` (14 tasks)
-- **Done:** Tasks 1–4
-- **Next step:** Task 5 (documents, settings, hooks)
+- **Done:** Tasks 1–5
+- **Next step:** Task 6 (renderer)
 - **Blockers to clear before Task 13/14:** Docker Desktop daemon not running at planning time; `gh` token for `pavannaik2004` invalid (needs `gh auth login`)
 
 ## Key references
@@ -23,7 +23,7 @@ Single source of truth for project progress. **Read before starting any work; up
 
 | Phase | Status |
 | --- | --- |
-| 1. Local editor | In progress — implementing (Task 4/14 done) |
+| 1. Local editor | In progress — implementing (Task 5/14 done) |
 | 2. Technical rendering | Not started |
 | 3. Customization and export | Not started |
 | 4. Backend foundation | Not started |
@@ -43,3 +43,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Task 2: design system ported to `frontend/src/ui/` (tokens.css, components.css, 17 components incl. new MenuButton), snapshot in `docs/design-system/`, self-hosted fonts; 9 ui tests. Input now uses a separate <label> so hint/error text is not part of the field name (added to P-013).
 - 2026-09-26 — Task 3: store foundation: types, typed errors + userMessage, naming rules, Dexie schema v1 (root parent stored as ''), hierarchy helpers, transaction guards; 15 tests.
 - 2026-09-26 — Task 4: projects (summaries, CRUD, cascade delete) and folders (create/rename/move with cycle + cross-project checks, cascade delete); 15 tests. Store errors now named `MdIt*` because Dexie rewraps errors named like IndexedDB errors (`NotFoundError`).
+- 2026-09-26 — Task 5: documents (create/rename/duplicate/move/delete/save, shared sibling namespace), settings, live-query hooks, store public API; 19 new tests (62 total).
