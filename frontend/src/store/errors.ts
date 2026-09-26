@@ -2,7 +2,8 @@
 export class StoreError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = new.target.name;
+    // Prefixed: Dexie rewraps errors named like IndexedDB errors (e.g. "NotFoundError") inside transactions.
+    this.name = `MdIt${new.target.name}`;
   }
 }
 
