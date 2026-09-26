@@ -1,6 +1,6 @@
 # Phase 1 — Local editor: design
 
-Date: 2026-09-26 · Status: awaiting review · Source: `PRD_v3_Technical_Markdown_Workspace (1).md` §5, §7, §13 (Phase 1)
+Date: 2026-09-26 · Status: approved 2026-09-26 · Source: `PRD_v3_Technical_Markdown_Workspace (1).md` §5, §7, §13 (Phase 1)
 
 ## 1. Goal
 
@@ -40,7 +40,8 @@ md.IT/
 │       ├── editor/            CodeMirror setup, keymap, Editor component
 │       ├── renderer/          render(md) → sanitized HTML (pure)
 │       ├── store/             Dexie db, types, errors, projects/folders/documents/settings APIs
-│       ├── tree/              FileTree, TreeNode, dialogs, drag-and-drop
+│       ├── tree/              FileTree, rename, move dialog, drag-and-drop
+│       ├── dialogs/           ConfirmDialog, TextFieldDialog (shared)
 │       └── lib/               debounce, small helpers
 └── .github/workflows/ci.yml
 ```
@@ -55,7 +56,8 @@ md.IT/
 | `store/` | All IndexedDB access | Dexie |
 | `renderer/` | Markdown → safe HTML | markdown-it, DOMPurify |
 | `editor/` | CodeMirror instance and keymap | CodeMirror, `ui/` |
-| `tree/` | Hierarchy UI and actions | `store/`, `ui/` |
+| `tree/` | Hierarchy UI and actions | `store/`, `ui/`, `dialogs/` |
+| `dialogs/` | Shared confirm and text-field dialogs | `store/` (error messages), `ui/` |
 | `app/` | Routing, layout, autosave wiring, save status | all of the above |
 
 Rule: no module other than `store/` imports `dexie`. `renderer/` has no side effects and no imports from the app.
@@ -88,7 +90,7 @@ IDs: `crypto.randomUUID()`. `dirty` is set `true` on every content save (it mean
 
 All functions are async and throw typed errors: `NotFoundError`, `NameConflictError`, `InvalidMoveError`, `ValidationError` (empty or `/`-containing names).
 
-- **Projects:** `listProjects()`, `getProject(id)`, `createProject(name)`, `renameProject(id, name)`, `setProjectDescription(id, text)`, `deleteProject(id)` (cascade: folders, documents, images).
+- **Projects:** `listProjectSummaries()` (with document counts), `getProject(id)` (returns `null` when missing), `createProject(name)`, `renameProject(id, name)`, `setProjectDescription(id, text)`, `deleteProject(id)` (cascade: folders, documents, images).
 - **Folders:** `createFolder(projectId, parentFolderId, name)`, `renameFolder(id, name)`, `moveFolder(id, newParentId)` (rejects moving into itself or a descendant), `deleteFolder(id)` (cascade: descendant folders and their documents), `listFolders(projectId)`.
 - **Documents:** `createDocument(projectId, folderId, title?)` (default "Untitled.md", then "Untitled 2.md", …), `renameDocument(id, title)` (appends `.md` if missing), `duplicateDocument(id)` ("X copy.md", "X copy 2.md", …), `moveDocument(id, folderId)`, `deleteDocument(id)`, `getDocument(id)`, `saveDocumentContent(id, content)`, `listDocuments(projectId)` (returns full rows including content; projects are small enough in Phase 1).
 - **Settings:** `getSetting<T>(key, fallback)`, `setSetting(key, value)`.
@@ -132,9 +134,9 @@ On app start: if `navigator.storage?.persist` exists and `persisted()` is false,
 
 ## 12. Container and CI
 
-- `frontend/Dockerfile`: stage 1 `node:22-alpine`, `npm ci && npm run build`; stage 2 `nginx:1.27-alpine` with `nginx.conf` and `dist/`. Exposes 80.
+- `frontend/Dockerfile`: stage 1 `node:22-alpine`, `npm ci && npm run build`; stage 2 `nginx:1.28-alpine` with `nginx.conf` and `dist/`. Exposes 80.
 - `nginx.conf`: `try_files $uri /index.html`; long cache for hashed `/assets/*`, `no-cache` for `index.html`; headers: `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`.
-- `.github/workflows/ci.yml` on pull_request (path filter `frontend/**`): `npm ci`, `npm run lint`, `npm run typecheck`, `npm test -- --run`, `npm run build`, `docker build frontend` (no push).
+- `.github/workflows/ci.yml` on pull_request (path filter `frontend/**`): `npm ci`, `npm run lint`, `npm run typecheck`, `npm test` (`vitest run`), `npm run build`, `docker build frontend` (no push).
 
 ## 13. Testing
 
