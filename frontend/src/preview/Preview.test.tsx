@@ -6,7 +6,7 @@ import { Preview } from './Preview';
 function setup(html: string) {
   const onOpenDocument = vi.fn();
   const onNotice = vi.fn();
-  render(<Preview html={html} onOpenDocument={onOpenDocument} onNotice={onNotice} />);
+  render(<Preview html={html} theme="light" onOpenDocument={onOpenDocument} onNotice={onNotice} />);
   return { onOpenDocument, onNotice };
 }
 

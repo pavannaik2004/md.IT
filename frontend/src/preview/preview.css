@@ -3,3 +3,7 @@
 .md-prose .katex-display { overflow-x: auto; overflow-y: hidden; padding: var(--space-1) 0; }
 .md-prose .md-img-missing.is-pending { border-style: solid; border-color: var(--line); }
 .md-copy-buffer { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; }
+.md-prose .md-mermaid { display: flex; justify-content: center; margin: var(--space-6) 0; }
+.md-prose .md-mermaid svg { max-width: 100%; height: auto; }
+.md-prose .md-mermaid[data-state="pending"] { align-items: center; height: 120px; border: 1px solid var(--line); border-radius: var(--radius-lg); font: 400 13px/20px var(--font-sans); color: var(--ink-muted); }
+.md-prose .md-mermaid[data-state="error"] { display: block; }

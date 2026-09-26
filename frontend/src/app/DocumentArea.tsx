@@ -1,5 +1,5 @@
 import { Editor } from '../editor';
-import { Preview } from '../preview';
+import { Preview, type Theme } from '../preview';
 import { EmptyState } from '../ui';
 import type { DocumentDraft } from './useDocumentDraft';
 
@@ -7,11 +7,12 @@ export interface DocumentAreaProps {
   docId: string | undefined;
   draft: DocumentDraft;
   html: string;
+  theme: Theme;
   onOpenDocument: (docId: string) => void;
   onNotice: (message: string) => void;
 }
 
-export function DocumentArea({ docId, draft, html, onOpenDocument, onNotice }: DocumentAreaProps) {
+export function DocumentArea({ docId, draft, html, theme, onOpenDocument, onNotice }: DocumentAreaProps) {
   if (draft.status === 'none') {
     return (
       <div className="ws-empty">
@@ -37,7 +38,7 @@ export function DocumentArea({ docId, draft, html, onOpenDocument, onNotice }: D
         <Editor key={docId} initialContent={draft.initialContent} onChange={draft.onChange} onSave={draft.saveNow} />
       </section>
       <section className="ws-preview" aria-label="Preview">
-        <Preview html={html} onOpenDocument={onOpenDocument} onNotice={onNotice} />
+        <Preview html={html} theme={theme} onOpenDocument={onOpenDocument} onNotice={onNotice} />
       </section>
     </>
   );

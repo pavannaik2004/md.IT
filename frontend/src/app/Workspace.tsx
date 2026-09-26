@@ -7,6 +7,7 @@ import { SaveStatus, SegmentedControl, Wordmark, type SegmentedOption } from '..
 import { DocumentArea } from './DocumentArea';
 import { MissingPage } from './MissingPage';
 import { Notice, type NoticeMessage } from './Notice';
+import { useResolvedTheme } from './theme';
 import { ThemeMenu } from './ThemeMenu';
 import { useDocumentDraft } from './useDocumentDraft';
 
@@ -24,6 +25,7 @@ export function Workspace() {
   const project = useProject(projectId);
   const [mode, setMode] = useSettingState<ViewMode>(SETTINGS.mode, 'split');
   const draft = useDocumentDraft(docId);
+  const theme = useResolvedTheme();
   const { saveNow } = draft;
   const html = useMemo(() => render(draft.previewSource), [draft.previewSource]);
 
@@ -77,7 +79,7 @@ export function Workspace() {
           <FileTree projectId={projectId} activeDocId={docId} onOpen={openDocument} onActiveDeleted={closeDocument} />
         </aside>
         <main className={`ws-main mode-${mode}`}>
-          <DocumentArea docId={docId} draft={draft} html={html} onOpenDocument={openDocument} onNotice={showNotice} />
+          <DocumentArea docId={docId} draft={draft} html={html} theme={theme} onOpenDocument={openDocument} onNotice={showNotice} />
           <Notice notice={notice} onDismiss={dismissNotice} />
         </main>
       </div>
