@@ -6,10 +6,11 @@ Single source of truth for project progress. **Read before starting any work; up
 
 - **Phase:** 1 — Local editor (PRD §13)
 - **Branch:** `phase-1-local-editor`
-- **Stage:** spec approved; implementation plan written, awaiting user review and choice of execution method
+- **Stage:** executing plan inline (user chose Native); ledger at `.superpowers/sdd/2026-09-26-phase-1-local-editor/progress.md` (git-ignored)
 - **Spec:** `docs/superpowers/specs/2026-09-26-phase-1-local-editor-design.md`
-- **Plan:** `docs/superpowers/plans/2026-09-26-phase-1-local-editor.md` (14 tasks, none started)
-- **Next step:** user reviews plan → execute Task 1
+- **Plan:** `docs/superpowers/plans/2026-09-26-phase-1-local-editor.md` (14 tasks)
+- **Done:** Task 1
+- **Next step:** Task 2 (design system port)
 - **Blockers to clear before Task 13/14:** Docker Desktop daemon not running at planning time; `gh` token for `pavannaik2004` invalid (needs `gh auth login`)
 
 ## Key references
@@ -22,7 +23,7 @@ Single source of truth for project progress. **Read before starting any work; up
 
 | Phase | Status |
 | --- | --- |
-| 1. Local editor | In progress — plan written |
+| 1. Local editor | In progress — implementing (Task 1/14 done) |
 | 2. Technical rendering | Not started |
 | 3. Customization and export | Not started |
 | 4. Backend foundation | Not started |
@@ -38,3 +39,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Read PRD v3 and the md.IT design system artifact. Agreed with user: Phase 1 first; feature branches + PRs; design-system port to typed React; markdown-it; React state + Dexie. (decisions P-001…P-011)
 - 2026-09-26 — `git init`, remote `origin` added. Created `context.md`, `decisions.md`, `README.md`, `.gitignore`. Wrote Phase 1 design spec.
 - 2026-09-26 — User approved spec. Checked current package versions (Vite 8, Vitest 5, React 18.3, TS 6.0, Dexie 4.4, CodeMirror 6) and nginx tags. Wrote Phase 1 implementation plan (14 tasks); updated spec (dialogs module, `listProjectSummaries`, nginx 1.28, `npm test`). Decisions P-012…P-018.
+- 2026-09-26 — User chose Native (inline) execution. Task 1: frontend scaffold (Vite 8.3, React 18.3.1, TS 6.0, Vitest 5.0, jsdom 29.1, ESLint 10, Dexie 4.4, CodeMirror 6), `.gitattributes` (LF), `debounce` + 4 tests; lint/typecheck/build clean.
