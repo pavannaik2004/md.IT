@@ -7,7 +7,6 @@ Single source of truth for project progress. **Read before starting any work; up
 - **Phase:** 1 complete — merged to `main` via PR #1 (https://github.com/pavannaik2004/md.IT/pull/1), CI green
 - **Branch:** `phase-2-technical-rendering` (created from `main`, nothing built yet)
 - **Next step:** Phase 2 brainstorming → spec → plan (Mermaid, KaTeX, code-block styling/copy/highlighting, image syntax and assets)
-- **Open for user:** browser check of the container (create project/folder/document, type, reload; no CSP errors in console)
 - **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; relative preview links navigate away; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
 
 ## Key references
@@ -52,3 +51,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Task 14: CI workflow (.github/workflows/ci.yml: lint, typecheck, test, build, docker build on PRs touching frontend/), README run instructions. Final check from clean `npm ci`: lint ✓, typecheck ✓, 144/144 tests ✓, build ✓; no Dexie import outside src/store/. Spec acceptance: 1 ✓, 2 ✓ (container serves app), 3 covered by component tests — manual browser check pending with user, 4 ✓.
 - 2026-09-26 — Task 14: whole-branch review (fresh reviewer): 1 Critical, 3 Important (+1 re-graded), 8 Minor. Fixed with tests first: reopening a document after Back reused stale content and could overwrite saved text; `<style>` blocks now stripped; Ctrl+S retries a failed save and leaving the page asks while changes are unconfirmed; IDs work over plain HTTP (`newId`); dropping onto a document moves into its folder. 152 tests. Decisions P-020 (extended), P-021, P-022.
 - 2026-09-26 — Pushed `main` and `phase-1-local-editor`; user opened and merged PR #1 (merge commit 613fe27). CI (`frontend` job) passed in 57 s on first run. Deleted local phase-1 branch; created `phase-2-technical-rendering` from `main`.
+- 2026-09-26 — Browser check done: user tried the container at localhost:8080 and confirmed it works. Also verified with headless Edge (Playwright) against both the container and the dev server: live preview renders headings/bold/lists, content persists across reload, no console errors.
