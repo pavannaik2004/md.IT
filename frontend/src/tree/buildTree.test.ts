@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Folder, MdDocument } from '../store';
+import type { Folder, ImageAsset, MdDocument } from '../store';
 import { buildTree, flattenVisible, folderContents, moveTargets } from './buildTree';
 
 const folder = (id: string, parentFolderId: string | null, name: string): Folder => ({ id, projectId: 'p', parentFolderId, name, createdAt: 0, updatedAt: 0 });
@@ -48,6 +48,23 @@ describe('moveTargets', () => {
 
 describe('folderContents', () => {
   it('counts nested folders and documents', () => {
-    expect(folderContents('f1', folders, documents)).toEqual({ folders: 1, documents: 2 });
+    expect(folderContents('f1', folders, documents)).toEqual({ folders: 1, documents: 2, images: 0 });
+  });
+});
+
+describe('images in the tree', () => {
+  const image = (id: string, folderId: string | null, name: string): ImageAsset => ({
+    id, projectId: 'p', folderId, name, contentType: 'image/png', size: 1, sha256: '', createdAt: 0, updatedAt: 0,
+  });
+
+  it('lists images among files, sorted by name, after folders', () => {
+    const tree = buildTree([folder('f', null, 'Z folder')], [doc('d', null, 'b.md')], [image('i', null, 'a.png'), image('j', 'f', 'inner.png')]);
+    expect(tree.map((node) => [node.kind, node.name])).toEqual([['folder', 'Z folder'], ['image', 'a.png'], ['file', 'b.md']]);
+    const top = tree[0]!;
+    expect(top.kind === 'folder' && top.children.map((node) => node.name)).toEqual(['inner.png']);
+  });
+
+  it('counts images inside a folder', () => {
+    expect(folderContents('f', [folder('f', null, 'F')], [], [image('i', 'f', 'a.png'), image('j', null, 'b.png')])).toEqual({ folders: 0, documents: 0, images: 1 });
   });
 });

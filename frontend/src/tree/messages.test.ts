@@ -10,6 +10,16 @@ describe('deleteMessage', () => {
     expect(deleteMessage({ kind: 'folder', name: 'OS' }, { folders: 0, documents: 0 })).toBe('Delete “OS”? This can’t be undone.');
   });
 
+  it('lists images that go with a folder', () => {
+    expect(deleteMessage({ kind: 'folder', name: 'OS' }, { folders: 1, documents: 2, images: 1 })).toBe(
+      'Delete “OS” and the 2 documents, 1 image and 1 folder inside it? This can’t be undone.',
+    );
+  });
+
+  it('names a single image', () => {
+    expect(deleteMessage({ kind: 'image', name: 'a.png' })).toBe('Delete “a.png”? This can’t be undone.');
+  });
+
   it('lists what goes with a folder', () => {
     expect(deleteMessage({ kind: 'folder', name: 'OS' }, { folders: 1, documents: 2 })).toBe(
       'Delete “OS” and the 2 documents and 1 folder inside it? This can’t be undone.',

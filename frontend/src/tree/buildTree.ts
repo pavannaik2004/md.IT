@@ -1,8 +1,8 @@
-import { ancestorFolderIds, descendantFolderIds, type Folder, type MdDocument } from '../store';
+import { ancestorFolderIds, descendantFolderIds, type Folder, type ImageAsset, type MdDocument } from '../store';
 
 export type TreeNode =
   | { kind: 'folder'; id: string; name: string; parentId: string | null; depth: number; children: TreeNode[] }
-  | { kind: 'file'; id: string; name: string; parentId: string | null; depth: number };
+  | { kind: 'file' | 'image'; id: string; name: string; parentId: string | null; depth: number };
 
 export type NodeRef = Pick<TreeNode, 'kind' | 'id' | 'parentId'>;
 
@@ -15,7 +15,7 @@ export interface MoveTarget {
 const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
 const byName = (a: { name: string }, b: { name: string }) => collator.compare(a.name, b.name);
 
-export function buildTree(folders: readonly Folder[], documents: readonly MdDocument[]): TreeNode[] {
+export function buildTree(folders: readonly Folder[], documents: readonly MdDocument[], images: readonly ImageAsset[] = []): TreeNode[] {
   const known = new Set(folders.map((f) => f.id));
   // An item whose parent is missing (should not happen) is shown at the root rather than lost.
   const parentOf = (id: string | null) => (id !== null && known.has(id) ? id : null);
@@ -28,10 +28,10 @@ export function buildTree(folders: readonly Folder[], documents: readonly MdDocu
         kind: 'folder', id: f.id, name: f.name, parentId, depth,
         children: build(f.id, depth + 1, new Set([...seen, f.id])),
       }));
-    const childFiles = documents
-      .filter((d) => parentOf(d.folderId) === parentId)
-      .map((d) => ({ kind: 'file' as const, id: d.id, name: d.title, parentId, depth }))
-      .sort(byName);
+    const childFiles: TreeNode[] = [
+      ...documents.filter((d) => parentOf(d.folderId) === parentId).map((d) => ({ kind: 'file' as const, id: d.id, name: d.title, parentId, depth })),
+      ...images.filter((i) => parentOf(i.folderId) === parentId).map((i) => ({ kind: 'image' as const, id: i.id, name: i.name, parentId, depth })),
+    ].sort(byName);
     return [...childFolders, ...childFiles];
   };
   return build(null, 0, new Set());
@@ -63,10 +63,15 @@ export function canMoveTo(node: NodeRef, targetId: string | null, folders: reado
   return moveTargets(node, folders).some((target) => target.id === targetId);
 }
 
-export function folderContents(folderId: string, folders: readonly Folder[], documents: readonly MdDocument[]) {
+export function folderContents(folderId: string, folders: readonly Folder[], documents: readonly MdDocument[], images: readonly ImageAsset[] = []) {
   const nested = descendantFolderIds(folders, folderId);
   const inside = new Set([folderId, ...nested]);
-  return { folders: nested.length, documents: documents.filter((d) => d.folderId !== null && inside.has(d.folderId)).length };
+  const within = (parent: string | null) => parent !== null && inside.has(parent);
+  return {
+    folders: nested.length,
+    documents: documents.filter((d) => within(d.folderId)).length,
+    images: images.filter((i) => within(i.folderId)).length,
+  };
 }
 
 export function isInsideFolder(document: MdDocument | undefined, folderId: string, folders: readonly Folder[]): boolean {

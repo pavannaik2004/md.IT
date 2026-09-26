@@ -62,3 +62,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Task 6: preview wrapper (copy buttons with plain-HTTP fallback, relative links kept in the app), workspace Notice (src/preview/, app/Notice.tsx, DocumentArea, Workspace; 252 tests).
 - 2026-09-27 — Task 7: lazy Mermaid (strict, cached per theme+source, stale results dropped, load failure notice), useResolvedTheme, theme passed to the preview (src/preview/mermaid.ts, app/theme.ts; 263 tests). Mermaid is its own chunk; main bundle 1.28 MB (434 kB gzip).
 - 2026-09-27 — Task 8: editor insertBlock handle (adds only missing blank lines, one undo step) and image drop/paste hand-off (src/editor/; 269 tests).
+- 2026-09-27 — Task 9: tree image rows — Insert in document, rename/move/delete, drag moves, hover thumbnail, image files dropped from the computer, folder-delete counts images (src/tree/; 283 tests).
