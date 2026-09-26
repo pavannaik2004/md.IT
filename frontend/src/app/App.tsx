@@ -4,6 +4,7 @@ import { MissingPage } from './MissingPage';
 import { ProjectList } from './ProjectList';
 import { requestPersistentStorage } from './storage';
 import { useApplyTheme } from './theme';
+import { Workspace } from './Workspace';
 
 export function App() {
   useApplyTheme();
@@ -14,6 +15,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/" element={<ProjectList />} />
+      <Route path="/p/:projectId" element={<Workspace />} />
+      <Route path="/p/:projectId/d/:docId" element={<Workspace />} />
       <Route path="*" element={<MissingPage title="This page doesn’t exist" text="Check the address, or go back to your projects." />} />
     </Routes>
   );
