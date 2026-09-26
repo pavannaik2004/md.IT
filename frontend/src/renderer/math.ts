@@ -15,7 +15,10 @@ const mathInline: InlineRule = (state, silent) => {
   if (src.charCodeAt(pos) !== DOLLAR || src.charCodeAt(pos + 1) === DOLLAR) return false;
   const first = src[pos + 1];
   if (first === undefined || pos + 1 >= posMax || SPACE.test(first)) return false;
-  for (let end = src.indexOf('$', pos + 1); end !== -1 && end < posMax; end = src.indexOf('$', end + 1)) {
+  // Never scan into a code span: "$5 … `^\d+$`" must keep its code.
+  const backtick = src.indexOf('`', pos + 1);
+  const limit = backtick === -1 ? posMax : Math.min(posMax, backtick);
+  for (let end = src.indexOf('$', pos + 1); end !== -1 && end < limit; end = src.indexOf('$', end + 1)) {
     const before = src[end - 1]!;
     if (before === '\\' || SPACE.test(before) || /\d/.test(src[end + 1] ?? '')) continue;
     if (!silent) {

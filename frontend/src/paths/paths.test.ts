@@ -73,6 +73,13 @@ describe('paths', () => {
     expect(index.relativeHref(null, { kind: 'image', id: 'nope' })).toBeNull();
   });
 
+  it('encodes # and ? so names like "C#" round-trip', () => {
+    const odd = createPathIndex([{ id: 'cs', parentFolderId: null, name: 'C#' }], [], [{ id: 'fig', folderId: 'cs', name: 'fig #1?.png' }]);
+    const href = odd.relativeHref(null, { kind: 'image', id: 'fig' });
+    expect(href).toBe('C%23/fig%20%231%3F.png');
+    expect(odd.resolve(null, href!)).toEqual({ kind: 'image', id: 'fig' });
+  });
+
   it('encodes only what breaks a Markdown link destination', () => {
     expect(encodeSegment('a b(1)<x>%.png')).toBe('a%20b%281%29%3Cx%3E%25.png');
     expect(encodeSegment('äpfel.png')).toBe('äpfel.png');

@@ -30,6 +30,15 @@ describe('math', () => {
     expect(render(source)).not.toContain('katex');
   });
 
+  it.each([
+    ['Costs $5; the regex `^\\d+$` matches.', '<code>^\\d+$</code>'],
+    ['Set $HOME, then run `echo x$`.', '<code>echo x$</code>'],
+  ])('never reaches into a later code span: %s', (source, code) => {
+    const html = render(source);
+    expect(html).not.toContain('katex');
+    expect(html).toContain(code);
+  });
+
   it('treats an unclosed block as text', () => {
     const html = render('$$\nx');
     expect(html).not.toContain('katex');

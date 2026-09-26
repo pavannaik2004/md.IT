@@ -110,7 +110,7 @@ Pure functions over `{ folders, documents, images }`:
   - A leading `/` resolves from the project root. Otherwise the href resolves from `fromFolderId`, with `.` and `..` supported.
   - Each segment is percent-decoded; a malformed escape means missing.
   - Names match case-insensitively. Climbing above the root means missing.
-- `relativeHref(fromFolderId, target)` → e.g. `images/a.png`, `../Assets/a.png`. Space, `(`, `)`, `<`, `>` and `%` in segments are percent-encoded so the result is a valid Markdown link destination.
+- `relativeHref(fromFolderId, target)` → e.g. `images/a.png`, `../Assets/a.png`. Space, `(`, `)`, `<`, `>`, `#`, `?` and `%` in segments are percent-encoded so the result is a valid Markdown link destination.
 
 Used by the app (resolver and inserts) and the tree (Insert in document), and by Phase 3's zip export.
 

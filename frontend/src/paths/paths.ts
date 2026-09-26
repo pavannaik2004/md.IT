@@ -23,7 +23,8 @@ export function isExternalHref(href: string): boolean {
 /** Percent-encode what would break a Markdown link destination; everything else stays readable. */
 export function encodeSegment(segment: string): string {
   // encodeURIComponent leaves ( and ) alone, so ASCII characters are encoded by hand.
-  return segment.replace(/[%\s()<>]/g, (c) =>
+  // # and ? too: resolve() cuts hrefs at them, and names like "C#" are allowed.
+  return segment.replace(/[%\s()<>#?]/g, (c) =>
     c.charCodeAt(0) < 0x80 ? `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}` : encodeURIComponent(c),
   );
 }
