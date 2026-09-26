@@ -5,9 +5,10 @@ Single source of truth for project progress. **Read before starting any work; up
 ## Current state
 
 - **Phase:** 2 built on `phase-2-technical-rendering` — PR pending
-- **Branch:** `phase-2-technical-rendering` (all 11 plan tasks done; final review next)
-- **Next step:** whole-branch review, then push and open the PR when the user asks
-- **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; relative preview links navigate away; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
+- **Branch:** `phase-2-technical-rendering` (all 11 plan tasks and the final review done; 300 tests)
+- **Next step:** user picks merge locally / push and open the PR / keep the branch
+- **Deferred minors from Phase 2 review:** editor drop of images mixed with other files silently ignores the others; an async image insert can land in another document after a switch, and the drop position isn’t clamped; every autosave rebuilds the path index and re-renders; a link to a folder says “isn’t in this project” instead of “Only links to documents…”; an image whose bytes are missing shows “Loading image…” forever; a raw-HTML `data-doc-id` isn’t escaped in the route or checked against the project; the hover thumbnail isn’t clamped to the viewport or moved on tree scroll
+- **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
 
 ## Key references
 
@@ -65,4 +66,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-27 — Task 9: tree image rows — Insert in document, rename/move/delete, drag moves, hover thumbnail, image files dropped from the computer, folder-delete counts images (src/tree/; 283 tests).
 - 2026-09-27 — Task 10: workspace wiring — object URLs per image, render context (stored images, loading state, document links), Insert image button, editor drops/pastes and tree inserts land in images/ next to the document (src/app/; 297 tests, stable over 3 runs).
 - 2026-09-27 — Task 11: verification. Clean `npm ci`: lint ✓, typecheck ✓, 297/297 tests ✓, build ✓. Main bundle 1,296 kB (440 kB gzip; KaTeX + highlight.js), Mermaid in lazy chunks (mermaid.core 94 kB + diagram chunks), none in the main bundle. Container: image builds, / 200. Headless Edge against the container: 4 diagrams (flowchart, sequence, class, ER) + 1 inline diagram error; 2 KaTeX + 1 math error; 9/9 languages highlighted; copy button copies; uploaded image width=50% align=right; missing-image placeholder; survives reload; renaming the image shows the placeholder; Mermaid not requested for a plain document; no console or CSP errors. Decisions P-028, P-029.
-- 2026-09-27 — Final whole-branch review (fresh reviewer): with fixes; fixed inline math swallowing a later code span and # / ? left unencoded in inserted image paths (tests first; 300 tests). Theme-colour race not reproducible in Edge (ruling). 7 minors deferred (listed in the PR).
+- 2026-09-27 — Final whole-branch review (fresh reviewer): with fixes; fixed inline math swallowing a later code span and # / ? left unencoded in inserted image paths (tests first; 300 tests). Theme-colour race not reproducible in Edge (ruling). 7 minors deferred (listed under Current state).
