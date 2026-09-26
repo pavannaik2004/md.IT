@@ -9,9 +9,9 @@ Single source of truth for project progress. **Read before starting any work; up
 - **Stage:** executing plan inline (user chose Native); ledger at `.superpowers/sdd/2026-09-26-phase-1-local-editor/progress.md` (git-ignored)
 - **Spec:** `docs/superpowers/specs/2026-09-26-phase-1-local-editor-design.md`
 - **Plan:** `docs/superpowers/plans/2026-09-26-phase-1-local-editor.md` (14 tasks)
-- **Done:** Tasks 1–12
-- **Next step:** Task 13 (frontend container) — needs Docker Desktop running
-- **Blockers to clear before Task 13/14:** Docker Desktop daemon not running at planning time; `gh` token for `pavannaik2004` invalid (needs `gh auth login`)
+- **Done:** Tasks 1–13
+- **Next step:** Task 14 (CI, README, push, PR) — needs `gh auth login`
+- **Blockers to clear before Task 14:** `gh` token for `pavannaik2004` invalid (needs `gh auth login`). Docker Desktop now starts fine.
 
 ## Key references
 
@@ -23,7 +23,7 @@ Single source of truth for project progress. **Read before starting any work; up
 
 | Phase | Status |
 | --- | --- |
-| 1. Local editor | In progress — implementing (Task 12/14 done) |
+| 1. Local editor | In progress — implementing (Task 13/14 done) |
 | 2. Technical rendering | Not started |
 | 3. Customization and export | Not started |
 | 4. Backend foundation | Not started |
@@ -51,3 +51,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Task 10: app shell (router, theme applied from settings, persistent-storage request), project list (create/rename/describe/delete with confirmation, storage warning), MissingPage, text/time helpers, final main.tsx + app.css; 21 tests (115 total). Dev server serves `/` and deep links.
 - 2026-09-26 — Task 11: file tree: nested rows (folders first, natural sort), inline rename with conflict errors, duplicate, Move to… dialog, drag-and-drop, delete confirmation listing contents, closes open doc when deleted; 20 tests (135 total).
 - 2026-09-26 — Task 12: workspace: toolbar (wordmark, project, Split/Editor/Preview remembered, save status, theme), tree + editor + live sanitized preview, Ctrl/Cmd+S anywhere, missing project/document pages; 9 tests (144 total, stable over 3 runs).
+- 2026-09-26 — Task 13: frontend container (node:22-alpine build → nginx:1.28-alpine), SPA fallback, CSP + security headers on every location, immutable asset caching. Verified: image builds; / 200 with CSP/no-cache; deep link 200; hashed asset immutable; missing asset 404; fonts served as font/woff2; built HTML has no inline scripts or eval.
