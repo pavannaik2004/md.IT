@@ -4,9 +4,9 @@ Single source of truth for project progress. **Read before starting any work; up
 
 ## Current state
 
-- **Phase:** 1 complete — merged to `main` via PR #1 (https://github.com/pavannaik2004/md.IT/pull/1), CI green
-- **Branch:** `phase-2-technical-rendering` (building Phase 2 — native execution)
-- **Next step:** user reviews the Phase 2 plan (`docs/superpowers/plans/2026-09-26-phase-2-technical-rendering.md`) and picks an execution method
+- **Phase:** 2 built on `phase-2-technical-rendering` — PR pending
+- **Branch:** `phase-2-technical-rendering` (all 11 plan tasks done; final review next)
+- **Next step:** whole-branch review, then push and open the PR when the user asks
 - **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; relative preview links navigate away; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
 
 ## Key references
@@ -20,7 +20,7 @@ Single source of truth for project progress. **Read before starting any work; up
 | Phase | Status |
 | --- | --- |
 | 1. Local editor | Done — merged 2026-09-26 (PR #1) |
-| 2. Technical rendering | Spec written |
+| 2. Technical rendering | Built — PR pending |
 | 3. Customization and export | Not started |
 | 4. Backend foundation | Not started |
 | 5. Login and versions | Not started |
@@ -64,3 +64,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-27 — Task 8: editor insertBlock handle (adds only missing blank lines, one undo step) and image drop/paste hand-off (src/editor/; 269 tests).
 - 2026-09-27 — Task 9: tree image rows — Insert in document, rename/move/delete, drag moves, hover thumbnail, image files dropped from the computer, folder-delete counts images (src/tree/; 283 tests).
 - 2026-09-27 — Task 10: workspace wiring — object URLs per image, render context (stored images, loading state, document links), Insert image button, editor drops/pastes and tree inserts land in images/ next to the document (src/app/; 297 tests, stable over 3 runs).
+- 2026-09-27 — Task 11: verification. Clean `npm ci`: lint ✓, typecheck ✓, 297/297 tests ✓, build ✓. Main bundle 1,296 kB (440 kB gzip; KaTeX + highlight.js), Mermaid in lazy chunks (mermaid.core 94 kB + diagram chunks), none in the main bundle. Container: image builds, / 200. Headless Edge against the container: 4 diagrams (flowchart, sequence, class, ER) + 1 inline diagram error; 2 KaTeX + 1 math error; 9/9 languages highlighted; copy button copies; uploaded image width=50% align=right; missing-image placeholder; survives reload; renaming the image shows the placeholder; Mermaid not requested for a plain document; no console or CSP errors. Decisions P-028, P-029.
