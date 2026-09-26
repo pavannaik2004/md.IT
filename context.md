@@ -5,8 +5,8 @@ Single source of truth for project progress. **Read before starting any work; up
 ## Current state
 
 - **Phase:** 1 complete — merged to `main` via PR #1 (https://github.com/pavannaik2004/md.IT/pull/1), CI green
-- **Branch:** `phase-2-technical-rendering` (created from `main`, nothing built yet)
-- **Next step:** Phase 2 brainstorming → spec → plan (Mermaid, KaTeX, code-block styling/copy/highlighting, image syntax and assets)
+- **Branch:** `phase-2-technical-rendering` (spec written, awaiting user review)
+- **Next step:** user reviews Phase 2 spec (`docs/superpowers/specs/2026-09-26-phase-2-technical-rendering-design.md`) → implementation plan
 - **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; relative preview links navigate away; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
 
 ## Key references
@@ -20,7 +20,7 @@ Single source of truth for project progress. **Read before starting any work; up
 | Phase | Status |
 | --- | --- |
 | 1. Local editor | Done — merged 2026-09-26 (PR #1) |
-| 2. Technical rendering | Not started |
+| 2. Technical rendering | Spec written |
 | 3. Customization and export | Not started |
 | 4. Backend foundation | Not started |
 | 5. Login and versions | Not started |
@@ -52,3 +52,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Task 14: whole-branch review (fresh reviewer): 1 Critical, 3 Important (+1 re-graded), 8 Minor. Fixed with tests first: reopening a document after Back reused stale content and could overwrite saved text; `<style>` blocks now stripped; Ctrl+S retries a failed save and leaving the page asks while changes are unconfirmed; IDs work over plain HTTP (`newId`); dropping onto a document moves into its folder. 152 tests. Decisions P-020 (extended), P-021, P-022.
 - 2026-09-26 — Pushed `main` and `phase-1-local-editor`; user opened and merged PR #1 (merge commit 613fe27). CI (`frontend` job) passed in 57 s on first run. Deleted local phase-1 branch; created `phase-2-technical-rendering` from `main`.
 - 2026-09-26 — Browser check done: user tried the container at localhost:8080 and confirmed it works. Also verified with headless Edge (Playwright) against both the container and the dev server: live preview renders headings/bold/lists, content persists across reload, no console errors.
+- 2026-09-26 — Phase 2 brainstorming: images as tree files, no-navigate image rows with Insert in document, relative .md links open in workspace, two-stage rendering. Probed fake-indexeddb: Blob does not round-trip under jsdom, ArrayBuffer does. Wrote Phase 2 design spec. Decisions P-023…P-027.
