@@ -42,6 +42,8 @@ export function useDocumentDraft(docId: string | undefined, { saveDelay = 1000, 
     );
     return () => {
       cancelled = true;
+      // Forget this load: reopening the document later must read it again, never reuse stale content.
+      setLoaded(null);
     };
   }, [docId]);
 
@@ -49,35 +51,63 @@ export function useDocumentDraft(docId: string | undefined, { saveDelay = 1000, 
   const saver = useMemo(() => {
     if (!docId) return null;
     let latest = 0;
-    const save = debounce((content: string) => {
+    /** Latest content not yet confirmed written; kept after a failure so it can be retried. */
+    let unsaved: string | null = null;
+    const write = (content: string) => {
       const ticket = ++latest;
       saveDocumentContent(docId, content).then(
         () => {
-          if (ticket === latest && !save.pending()) setSaveState('saved');
+          if (unsaved === content) unsaved = null;
+          if (ticket === latest && !debounced.pending()) setSaveState('saved');
         },
         (error: unknown) => {
-          if (error instanceof NotFoundError) return; // deleted meanwhile; nothing left to save
+          if (error instanceof NotFoundError) {
+            unsaved = null; // deleted meanwhile; nothing left to save
+            return;
+          }
           console.error(error);
           if (ticket === latest) setSaveState('failed');
         },
       );
-    }, saveDelay);
-    return save;
+    };
+    const debounced = debounce(write, saveDelay);
+    return {
+      schedule(content: string) {
+        unsaved = content;
+        debounced(content);
+      },
+      /** Write now: the pending edit, or retry the last one that failed. */
+      flush() {
+        if (debounced.pending()) debounced.flush();
+        else if (unsaved !== null) {
+          setSaveState('saving');
+          write(unsaved);
+        }
+      },
+      hasUnsaved: () => unsaved !== null,
+    };
   }, [docId, saveDelay]);
 
   // Flush on document switch, unmount, tab hide and page unload.
   useEffect(() => {
     if (!saver) return;
-    const flush = () => saver.flush();
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') flush();
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      saver.flush();
+      // The write above is asynchronous; ask before leaving while anything is not confirmed saved.
+      if (saver.hasUnsaved()) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
     };
-    window.addEventListener('beforeunload', flush);
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') saver.flush();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
-      window.removeEventListener('beforeunload', flush);
+      window.removeEventListener('beforeunload', onBeforeUnload);
       document.removeEventListener('visibilitychange', onVisibility);
-      flush();
+      saver.flush();
     };
   }, [saver]);
 
@@ -89,7 +119,7 @@ export function useDocumentDraft(docId: string | undefined, { saveDelay = 1000, 
     (content: string) => {
       if (!saver) return;
       setSaveState('saving');
-      saver(content);
+      saver.schedule(content);
       previewer(content);
     },
     [saver, previewer],

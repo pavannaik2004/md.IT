@@ -140,4 +140,18 @@ describe('FileTree', () => {
     fireEvent.drop(target);
     await waitFor(async () => expect((await getDocument(doc.id))?.folderId).toBe(folder.id));
   });
+
+  it('dropping onto a document moves the item into that document’s folder, not the root', async () => {
+    const project = await createProject('OS');
+    const folder = await createFolder(project.id, null, 'Scheduling');
+    const inside = await createDocument(project.id, folder.id, 'Inside');
+    const doc = await createDocument(project.id, null, 'RR');
+    renderTree(project.id, inside.id); // active document keeps the folder open
+    const row = await screen.findByRole('treeitem', { name: 'RR.md' });
+    const target = await screen.findByRole('treeitem', { name: 'Inside.md' });
+    fireEvent.dragStart(row);
+    fireEvent.dragOver(target);
+    fireEvent.drop(target);
+    await waitFor(async () => expect((await getDocument(doc.id))?.folderId).toBe(folder.id));
+  });
 });

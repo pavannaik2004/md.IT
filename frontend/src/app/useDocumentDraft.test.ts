@@ -145,4 +145,49 @@ describe('useDocumentDraft', () => {
     await advance(1000);
     expect(result.current.saveState).toBe('saved');
   });
+
+  it('reloads fresh content when the same document is reopened after closing it', async () => {
+    const { result, rerender } = renderHook(({ id }: { id: string | undefined }) => useDocumentDraft(id), { initialProps: { id: 'a' as string | undefined } });
+    await advance(0);
+    expect(result.current.initialContent).toBe('content of a');
+    getDocumentMock.mockImplementation(async (id) => ({ ...fakeDoc(id!), content: 'saved later' }));
+    rerender({ id: undefined });
+    rerender({ id: 'a' });
+    expect(result.current.status).toBe('loading');
+    await advance(0);
+    expect(result.current).toMatchObject({ status: 'ready', initialContent: 'saved later' });
+  });
+
+  it('retries a failed save on saveNow', async () => {
+    saveMock.mockRejectedValueOnce(new Error('quota'));
+    const { result } = renderHook(() => useDocumentDraft('a'));
+    await advance(0);
+    act(() => result.current.onChange('keep me'));
+    await advance(1000);
+    expect(result.current.saveState).toBe('failed');
+    await act(async () => result.current.saveNow());
+    expect(saveMock).toHaveBeenLastCalledWith('a', 'keep me');
+    expect(result.current.saveState).toBe('saved');
+  });
+
+  it('asks before the page closes while changes are unsaved', async () => {
+    saveMock.mockRejectedValueOnce(new Error('quota')).mockRejectedValueOnce(new Error('quota'));
+    const { result } = renderHook(() => useDocumentDraft('a'));
+    await advance(0);
+    act(() => result.current.onChange('unsaved'));
+    await advance(1000);
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('does not ask before the page closes once everything is saved', async () => {
+    const { result } = renderHook(() => useDocumentDraft('a'));
+    await advance(0);
+    act(() => result.current.onChange('saved'));
+    await advance(1000);
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
 });

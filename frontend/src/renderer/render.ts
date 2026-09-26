@@ -23,8 +23,8 @@ function escapeHtml(text: string): string {
 /** Markdown → sanitized HTML. Pure apart from DOMPurify; never throws. */
 export function render(markdown: string): string {
   try {
-    // Inline style is dropped: it can smuggle url(javascript:…) and would fight the document's rendering settings.
-    return DOMPurify.sanitize(md.render(markdown), { ADD_ATTR: ['target'], FORBID_ATTR: ['style'] });
+    // Inline style and <style> blocks are dropped: they can smuggle url(javascript:…), and a <style> block would restyle the whole app.
+    return DOMPurify.sanitize(md.render(markdown), { ADD_ATTR: ['target'], FORBID_ATTR: ['style'], FORBID_TAGS: ['style'] });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return `<div class="md-render-error">Couldn’t render this document: ${escapeHtml(message)}</div>`;

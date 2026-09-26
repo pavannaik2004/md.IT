@@ -33,6 +33,8 @@ describe('render', () => {
     ['[x](javascript:alert(1))', /href\s*=\s*["']?javascript:/i],
     ['<iframe src="https://evil.example"></iframe>', /<iframe/i],
     ['<div style="background:url(javascript:alert(1))">x</div>', /javascript:/i],
+    // A <style> block would restyle the whole app, not just the preview.
+    ['Hello\n\n<style>body{display:none}</style>', /<style/i],
   ])('strips dangerous markup: %s', (source, forbidden) => {
     expect(render(source)).not.toMatch(forbidden);
   });

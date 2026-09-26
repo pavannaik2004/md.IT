@@ -1,5 +1,6 @@
 import { db, now } from './db';
 import { requireProject } from './guards';
+import { newId } from './ids';
 import { normalizeName } from './names';
 import type { Project, ProjectSummary } from './types';
 
@@ -19,7 +20,7 @@ export async function getProject(id: string): Promise<Project | null> {
 
 export async function createProject(name: string): Promise<Project> {
   const at = now();
-  const project: Project = { id: crypto.randomUUID(), name: normalizeName(name), description: '', createdAt: at, updatedAt: at };
+  const project: Project = { id: newId(), name: normalizeName(name), description: '', createdAt: at, updatedAt: at };
   await db.projects.add(project);
   return project;
 }

@@ -10,7 +10,7 @@ Single source of truth for project progress. **Read before starting any work; up
 - **Spec:** `docs/superpowers/specs/2026-09-26-phase-1-local-editor-design.md`
 - **Plan:** `docs/superpowers/plans/2026-09-26-phase-1-local-editor.md` (14 tasks)
 - **Done:** Tasks 1–14
-- **Next step:** whole-branch review, then push + PR
+- **Next step:** push branch + open PR (needs `gh auth login`); user browser check
 - **Blockers to clear before Task 14:** `gh` token for `pavannaik2004` invalid (needs `gh auth login`). Docker Desktop now starts fine.
 
 ## Key references
@@ -53,3 +53,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Task 12: workspace: toolbar (wordmark, project, Split/Editor/Preview remembered, save status, theme), tree + editor + live sanitized preview, Ctrl/Cmd+S anywhere, missing project/document pages; 9 tests (144 total, stable over 3 runs).
 - 2026-09-26 — Task 13: frontend container (node:22-alpine build → nginx:1.28-alpine), SPA fallback, CSP + security headers on every location, immutable asset caching. Verified: image builds; / 200 with CSP/no-cache; deep link 200; hashed asset immutable; missing asset 404; fonts served as font/woff2; built HTML has no inline scripts or eval.
 - 2026-09-26 — Task 14: CI workflow (.github/workflows/ci.yml: lint, typecheck, test, build, docker build on PRs touching frontend/), README run instructions. Final check from clean `npm ci`: lint ✓, typecheck ✓, 144/144 tests ✓, build ✓; no Dexie import outside src/store/. Spec acceptance: 1 ✓, 2 ✓ (container serves app), 3 covered by component tests — manual browser check pending with user, 4 ✓.
+- 2026-09-26 — Task 14: whole-branch review (fresh reviewer): 1 Critical, 3 Important (+1 re-graded), 8 Minor. Fixed with tests first: reopening a document after Back reused stale content and could overwrite saved text; `<style>` blocks now stripped; Ctrl+S retries a failed save and leaving the page asks while changes are unconfirmed; IDs work over plain HTTP (`newId`); dropping onto a document moves into its folder. 152 tests. Decisions P-020 (extended), P-021, P-022.

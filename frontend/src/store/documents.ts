@@ -1,5 +1,6 @@
 import { db, now, toDocument, toKey, type DocumentRow } from './db';
 import { assertNameFree, requireDocument, requireFolderIn, requireProject, siblingNames, touchProject } from './guards';
+import { newId } from './ids';
 import { nextAvailableName, normalizeName, stripMdExtension, withMdExtension } from './names';
 import type { MdDocument } from './types';
 
@@ -26,7 +27,7 @@ export async function createDocument(projectId: string, folderId: string | null,
     assertNameFree(finalTitle, taken);
     const at = now();
     const row: DocumentRow = {
-      id: crypto.randomUUID(), projectId, folderId: parentKey, title: finalTitle, content: '', dirty: true, createdAt: at, updatedAt: at,
+      id: newId(), projectId, folderId: parentKey, title: finalTitle, content: '', dirty: true, createdAt: at, updatedAt: at,
     };
     await db.documents.add(row);
     await touchProject(projectId, at);
@@ -52,7 +53,7 @@ export async function duplicateDocument(id: string): Promise<MdDocument> {
     const taken = await siblingNames(doc.projectId, doc.folderId);
     const at = now();
     const row: DocumentRow = {
-      id: crypto.randomUUID(),
+      id: newId(),
       projectId: doc.projectId,
       folderId: doc.folderId,
       title: nextAvailableName(`${stripMdExtension(doc.title)} copy`, '.md', taken),

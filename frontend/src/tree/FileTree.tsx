@@ -199,8 +199,9 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted }: Fi
                   setDragging(node);
                 }}
                 onDragEnd={endDrag}
-                onDragOver={node.kind === 'folder' ? dragOver(node.id) : undefined}
-                onDrop={node.kind === 'folder' ? drop(node.id) : undefined}
+                // Dropping onto a document means "into the folder that holds it".
+                onDragOver={dragOver(node.kind === 'folder' ? node.id : node.parentId)}
+                onDrop={drop(node.kind === 'folder' ? node.id : node.parentId)}
                 trailing={<MenuButton size="sm" label={`Actions for ${node.name}`} items={menuFor(node)} />}
               />
             ),

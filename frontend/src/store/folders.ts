@@ -2,6 +2,7 @@ import { db, now, toFolder, toKey, type FolderRow } from './db';
 import { InvalidMoveError } from './errors';
 import { assertNameFree, requireFolder, requireFolderIn, requireProject, siblingNames, touchProject } from './guards';
 import { descendantFolderIds } from './hierarchy';
+import { newId } from './ids';
 import { nextAvailableName, normalizeName } from './names';
 import type { Folder } from './types';
 
@@ -22,7 +23,7 @@ export async function createFolder(projectId: string, parentFolderId: string | n
     const finalName = requested ?? nextAvailableName('New folder', '', taken);
     assertNameFree(finalName, taken);
     const at = now();
-    const row: FolderRow = { id: crypto.randomUUID(), projectId, parentFolderId: parentKey, name: finalName, createdAt: at, updatedAt: at };
+    const row: FolderRow = { id: newId(), projectId, parentFolderId: parentKey, name: finalName, createdAt: at, updatedAt: at };
     await db.folders.add(row);
     await touchProject(projectId, at);
     return toFolder(row);
