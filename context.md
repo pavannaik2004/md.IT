@@ -4,14 +4,11 @@ Single source of truth for project progress. **Read before starting any work; up
 
 ## Current state
 
-- **Phase:** 1 — Local editor (PRD §13)
-- **Branch:** `phase-1-local-editor`
-- **Stage:** executing plan inline (user chose Native); ledger at `.superpowers/sdd/2026-09-26-phase-1-local-editor/progress.md` (git-ignored)
-- **Spec:** `docs/superpowers/specs/2026-09-26-phase-1-local-editor-design.md`
-- **Plan:** `docs/superpowers/plans/2026-09-26-phase-1-local-editor.md` (14 tasks)
-- **Done:** Tasks 1–14
-- **Next step:** push branch + open PR (needs `gh auth login`); user browser check
-- **Blockers to clear before Task 14:** `gh` token for `pavannaik2004` invalid (needs `gh auth login`). Docker Desktop now starts fine.
+- **Phase:** 1 complete — merged to `main` via PR #1 (https://github.com/pavannaik2004/md.IT/pull/1), CI green
+- **Branch:** `phase-2-technical-rendering` (created from `main`, nothing built yet)
+- **Next step:** Phase 2 brainstorming → spec → plan (Mermaid, KaTeX, code-block styling/copy/highlighting, image syntax and assets)
+- **Open for user:** browser check of the container (create project/folder/document, type, reload; no CSP errors in console)
+- **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; relative preview links navigate away; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
 
 ## Key references
 
@@ -23,7 +20,7 @@ Single source of truth for project progress. **Read before starting any work; up
 
 | Phase | Status |
 | --- | --- |
-| 1. Local editor | In progress — implementing (Task 14/14 done) |
+| 1. Local editor | Done — merged 2026-09-26 (PR #1) |
 | 2. Technical rendering | Not started |
 | 3. Customization and export | Not started |
 | 4. Backend foundation | Not started |
@@ -54,3 +51,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Task 13: frontend container (node:22-alpine build → nginx:1.28-alpine), SPA fallback, CSP + security headers on every location, immutable asset caching. Verified: image builds; / 200 with CSP/no-cache; deep link 200; hashed asset immutable; missing asset 404; fonts served as font/woff2; built HTML has no inline scripts or eval.
 - 2026-09-26 — Task 14: CI workflow (.github/workflows/ci.yml: lint, typecheck, test, build, docker build on PRs touching frontend/), README run instructions. Final check from clean `npm ci`: lint ✓, typecheck ✓, 144/144 tests ✓, build ✓; no Dexie import outside src/store/. Spec acceptance: 1 ✓, 2 ✓ (container serves app), 3 covered by component tests — manual browser check pending with user, 4 ✓.
 - 2026-09-26 — Task 14: whole-branch review (fresh reviewer): 1 Critical, 3 Important (+1 re-graded), 8 Minor. Fixed with tests first: reopening a document after Back reused stale content and could overwrite saved text; `<style>` blocks now stripped; Ctrl+S retries a failed save and leaving the page asks while changes are unconfirmed; IDs work over plain HTTP (`newId`); dropping onto a document moves into its folder. 152 tests. Decisions P-020 (extended), P-021, P-022.
+- 2026-09-26 — Pushed `main` and `phase-1-local-editor`; user opened and merged PR #1 (merge commit 613fe27). CI (`frontend` job) passed in 57 s on first run. Deleted local phase-1 branch; created `phase-2-technical-rendering` from `main`.
