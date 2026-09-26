@@ -43,7 +43,8 @@ describe('Workspace', () => {
     const { project, doc } = await projectWithDocument();
     renderAt(`/p/${project.id}/d/${doc.id}`);
     expect(await screen.findByRole('heading', { level: 1, name: 'Hello' })).toBeInTheDocument();
-    expect(await screen.findByRole('status')).toHaveTextContent('Saved locally');
+    // Two live regions now: the save status and the (empty) notice.
+    await waitFor(() => expect(screen.getAllByRole('status').some((el) => el.textContent?.includes('Saved locally'))).toBe(true));
     expect(await screen.findByRole('treeitem', { name: 'Intro.md' })).toHaveAttribute('aria-selected', 'true');
   });
 
@@ -87,6 +88,17 @@ describe('Workspace', () => {
     const event = createEvent.keyDown(window, { key: 's', ctrlKey: true });
     fireEvent(window, event);
     expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('keeps relative links inside the app and says why', async () => {
+    const { project, doc } = await projectWithDocument('<a href="/elsewhere">Away</a>');
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    fireEvent.click(await screen.findByRole('link', { name: 'Away' }));
+    // SaveStatus is also role="status", so address the notice region directly.
+    const notice = () => container.querySelector('.ws-notice')!;
+    await waitFor(() => expect(notice()).toHaveTextContent('Only links to documents in this project open here.'));
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(notice()).toBeEmptyDOMElement();
   });
 
   it('never renders unsafe HTML from a document', async () => {

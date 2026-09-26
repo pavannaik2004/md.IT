@@ -39,3 +39,6 @@ html, body, #root { height: 100%; }
 .editor-host, .editor-host .cm-editor { height: 100%; }
 .ws-preview { min-width: 0; overflow: auto; background: var(--paper); }
 .ws-empty { grid-column: 1 / -1; display: grid; place-items: center; }
+.ws-main { position: relative; }
+.ws-notice { position: absolute; left: 50%; bottom: var(--space-4); transform: translateX(-50%); width: min(480px, calc(100% - var(--space-8))); z-index: 5; }
+.ws-notice:empty { display: none; }

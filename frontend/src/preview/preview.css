@@ -1,0 +1,5 @@
+.md-preview { min-height: 100%; }
+.md-prose .md-math-error { color: var(--danger); background: var(--danger-soft); border-color: transparent; }
+.md-prose .katex-display { overflow-x: auto; overflow-y: hidden; padding: var(--space-1) 0; }
+.md-prose .md-img-missing.is-pending { border-style: solid; border-color: var(--line); }
+.md-copy-buffer { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; }

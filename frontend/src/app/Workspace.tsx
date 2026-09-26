@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { render } from '../renderer';
 import { SETTINGS, useProject, useSettingState } from '../store';
@@ -6,6 +6,7 @@ import { FileTree } from '../tree';
 import { SaveStatus, SegmentedControl, Wordmark, type SegmentedOption } from '../ui';
 import { DocumentArea } from './DocumentArea';
 import { MissingPage } from './MissingPage';
+import { Notice, type NoticeMessage } from './Notice';
 import { ThemeMenu } from './ThemeMenu';
 import { useDocumentDraft } from './useDocumentDraft';
 
@@ -40,6 +41,9 @@ export function Workspace() {
 
   const openDocument = useCallback((id: string) => navigate(`/p/${projectId}/d/${id}`), [navigate, projectId]);
   const closeDocument = useCallback(() => navigate(`/p/${projectId}`, { replace: true }), [navigate, projectId]);
+  const [notice, setNotice] = useState<NoticeMessage | null>(null);
+  const showNotice = useCallback((text: string) => setNotice({ id: Date.now() + Math.random(), text }), []);
+  const dismissNotice = useCallback(() => setNotice(null), []);
 
   if (project === undefined) return <div className="ws" aria-busy="true" />;
   if (project === null) {
@@ -73,7 +77,8 @@ export function Workspace() {
           <FileTree projectId={projectId} activeDocId={docId} onOpen={openDocument} onActiveDeleted={closeDocument} />
         </aside>
         <main className={`ws-main mode-${mode}`}>
-          <DocumentArea docId={docId} draft={draft} html={html} />
+          <DocumentArea docId={docId} draft={draft} html={html} onOpenDocument={openDocument} onNotice={showNotice} />
+          <Notice notice={notice} onDismiss={dismissNotice} />
         </main>
       </div>
     </div>
