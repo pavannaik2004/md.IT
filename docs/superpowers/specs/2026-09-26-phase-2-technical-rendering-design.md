@@ -93,8 +93,8 @@ useImages(projectId)                                              // live query,
 
 Rules:
 
-- **Types:** PNG, JPEG, GIF, WebP, SVG, taken from `file.type` or, when that's empty, from the extension. Anything else throws `ValidationError("screen.bmp isn’t a supported image (PNG, JPEG, GIF, WebP or SVG).")`.
-- **Size:** at most 5 MB (5 × 1024 × 1024 bytes). Larger files throw `ValidationError("screen.png is 7.2 MB; images can be up to 5 MB.")`.
+- **Types:** PNG, JPEG, GIF, WebP, SVG, taken from `file.type` or, when that's empty, from the extension. Anything else throws `ValidationError("“screen.bmp” isn’t a supported image (PNG, JPEG, GIF, WebP or SVG).")`.
+- **Size:** at most 5 MB (5 × 1024 × 1024 bytes). Larger files throw `ValidationError("“screen.png” is 7.2 MB; images can be up to 5 MB.")`.
 - **Names on add:** the name is cleaned up. It's lowercased, runs of anything other than letters, digits, `.`, `_` or `-` become `-`, and dashes are trimmed. An empty result becomes `image`. The extension is kept when valid, otherwise taken from the type (`.jpg` for JPEG). A clash gets `-2`, `-3`, … before the extension: `screen-shot.png`, then `screen-shot-2.png`.
 - **Names on rename:** the sibling namespace is shared with folders and documents (case-insensitive, P-008). The extension is re-added if the user drops it, the same way documents keep `.md`. Otherwise the same validation as document names applies.
 - **Cascade:** `deleteFolder` and `deleteProject` remove images and their `imageData` in the same transaction. The folder-delete confirmation counts images alongside documents and folders.
@@ -120,8 +120,8 @@ Used by the app (resolver and inserts) and the tree (Insert in document), and by
 
 ```ts
 interface RenderContext {
-  resolveImage(href: string): { src: string } | { missing: true };  // external hrefs return { src: href }
-  resolveLink(href: string): { docId: string } | { missing: true } | { external: true };
+  resolveImage(href: string): { src: string } | { missing: true } | { pending: true };  // external hrefs return { src: href }
+  resolveLink(href: string): { docId: string } | { missing: true } | { external: true } | { unsupported: true };  // unsupported = an image or folder
 }
 render(markdown: string, context?: RenderContext): string   // still never throws
 ```
@@ -165,7 +165,7 @@ Fenced and indented code render as the design system's CodeBlock markup:
 - **Attribute block:** `![alt](src){width=400 align=left}`. A `{…}` immediately after an image token is consumed only when every key is `width` or `align` with a valid value; otherwise it stays as visible text, so typos show.
 - **`width`:** a bare number (px), `Npx`, or `N%` with 1 ≤ N ≤ 100. It's written as the `width` attribute; the existing `.md-prose img { max-width:100%; height:auto }` keeps the aspect ratio.
 - **`align`:** `left | center | right`, written as `data-align` (the design system already styles `img[data-align]` with `margin-inline`). The default is center.
-- **Source resolution:** `context.resolveImage(src)` gives the `src`, or the missing placeholder `<span class="md-image-missing" role="img" aria-label="Missing image: images/a.png">Image not found: images/a.png</span>`, displayed as a block in `line` and `ink-muted` tokens.
+- **Source resolution:** `context.resolveImage(src)` gives the `src`, or the missing placeholder `<span class="md-img-missing" role="img" aria-label="Missing image: images/a.png">Image not found: images/a.png</span>` (the design system already styles `.md-img-missing` as a dashed block). While a stored image's bytes are still loading, the resolver returns `{ pending: true }` and the same box shows "Loading image…" (`md-img-missing is-pending`), so a reload never flashes "not found".
 - **Block display:** images always display as blocks (existing CSS).
 
 ### 7.6 Links (`links.ts`)
@@ -176,7 +176,7 @@ Fenced and indented code render as the design system's CodeBlock markup:
 
 ## 8. Preview (`preview/`)
 
-`<Preview html theme projectId onNotice>` renders `Prose` and, in a `useLayoutEffect` after every `html` or `theme` change, runs the enhancement pass on its root.
+`<Preview html theme onOpenDocument onNotice>` renders `Prose` and, in a `useLayoutEffect` after every `html` or `theme` change, runs the enhancement pass on its root.
 
 **Mermaid**
 
@@ -201,13 +201,13 @@ Fenced and indented code render as the design system's CodeBlock markup:
 - **Other relative non-fragment links:** call `preventDefault` and `onNotice('Only links to documents in this project open here.')`.
 - **External and fragment links:** behave normally.
 
-**Notices.** A dismissible `Callout tone="warning"` pinned to the bottom of the preview. It's announced (`role="status"`) and disappears after 5 s.
+**Notices.** Owned by the Workspace, so image-add errors show in every view mode: a dismissible `Callout tone="warning"` pinned to the bottom centre of the document area. It's announced (`role="status"`) and disappears after 5 s.
 
 ## 9. Adding and inserting images
 
 **Editor**
 
-- **Handle:** `Editor` exposes `insertText(text)` through a ref. The text goes at the cursor, or at the end if the editor never had focus, and the cursor moves after it.
+- **Handle:** `Editor` exposes `insertBlock(text, at?)` through a ref. The text goes at `at`, or at the cursor (the end if the editor never had focus), as its own block: blank lines are added before and after where missing, so an image never joins a heading or paragraph. The cursor moves after the text.
 - **Drop:** dropping files inserts at the drop position (`posAtCoords`).
 - **Paste:** pasting files uses the cursor.
 - **Handoff:** image files go to `onImageFiles(files, pos)`; other files are ignored and the drop or paste falls through as before.
@@ -215,7 +215,7 @@ Fenced and indented code render as the design system's CodeBlock markup:
 **Workspace**
 
 - **Toolbar:** a new icon button **Insert image** (icon `image`) opens a hidden `<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" multiple>`. It's enabled only while a document is open.
-- **Where files go:** the open document's folder, in a subfolder named `images`. It's created with `findOrCreateFolder` if it doesn't exist. If a document or image already uses that name, the files go in the document's own folder.
+- **Where files go:** the open document's folder, in a subfolder named `images`. It's created with `findOrCreateFolder` if it doesn't exist, and matched case-insensitively (an existing `Images` folder is reused). No other item can take that name: documents always end in `.md` and images always carry an image extension. The folder is only created when at least one file passes the type and size checks.
 - **What's inserted:** one line per image, `![{name without extension}]({relativeHref})`, separated by blank lines, inserted as a single editor change so one undo removes them all.
 - **Failures:** failed files (type, size, storage) are reported together in one notice; valid files in the same batch are still added.
 
@@ -254,7 +254,7 @@ Fenced and indented code render as the design system's CodeBlock markup:
 | `store/images` | add (naming, clash suffix, type and size rules, hash), rename keeps extension, shared namespace conflicts, move, delete, cascades from folder and project, `findOrCreateFolder` |
 | `renderer/` | math inline and block, `$` edge cases, KaTeX errors, nonce forging; each language highlighted and unknown language plain; CodeBlock markup; mermaid placeholder; image attributes valid and invalid, width forms, align, missing placeholder, `blob:` kept; links resolved and missing; all Phase 1 sanitization cases |
 | `preview/` | Mermaid mocked: placeholder filled, cache reuse without re-render, stale result dropped, error block, load failure; copy uses the clipboard and falls back; link clicks navigate and give notices |
-| `editor/` | `insertText` at cursor and at end; image drop and paste call `onImageFiles`; other files ignored |
+| `editor/` | `insertBlock` at cursor, at end and at a position, adding only missing blank lines; image drop and paste call `onImageFiles`; other files ignored |
 | `tree/` | image rows, Insert in document, rename, move, delete confirmation, OS file drop onto a folder |
 | `app/` | Insert image button stores the file in `images/` and inserts Markdown; failures shown; preview shows the stored image |
 
