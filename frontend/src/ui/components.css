@@ -190,3 +190,12 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .md-tree-trailing .md-iconbtn { width: 22px; height: 22px; }
 .md-dialog.is-danger .md-dialog-title { color: var(--ink); }
 .md-dialog:focus { outline: none; }
+.md-code .hljs-keyword, .md-code .hljs-literal, .md-code .hljs-selector-tag, .md-code .hljs-type { color: var(--syntax-keyword); }
+.md-code .hljs-string, .md-code .hljs-regexp, .md-code .hljs-symbol, .md-code .hljs-template-variable, .md-code .hljs-addition { color: var(--syntax-string); }
+.md-code .hljs-number { color: var(--syntax-number); }
+.md-code .hljs-comment, .md-code .hljs-quote, .md-code .hljs-deletion { color: var(--syntax-comment); font-style: italic; }
+.md-code .hljs-title, .md-code .hljs-section, .md-code .hljs-built_in, .md-code .hljs-name, .md-code .hljs-selector-id, .md-code .hljs-selector-class { color: var(--syntax-title); }
+.md-code .hljs-attr, .md-code .hljs-attribute, .md-code .hljs-variable, .md-code .hljs-params, .md-code .hljs-property { color: var(--syntax-attr); }
+.md-code .hljs-meta, .md-code .hljs-doctag, .md-code .hljs-tag, .md-code .hljs-punctuation { color: var(--syntax-meta); }
+.md-code .hljs-emphasis { font-style: italic; }
+.md-code .hljs-strong { font-weight: 600; }

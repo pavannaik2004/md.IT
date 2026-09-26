@@ -2,6 +2,7 @@ import DOMPurify, { type Config } from 'dompurify';
 import MarkdownIt from 'markdown-it';
 import taskLists from 'markdown-it-task-lists';
 import type { RenderContext, RenderEnv } from './context';
+import { codeBlocks } from './code';
 import { escapeHtml } from './escape';
 import { images } from './images';
 import { links } from './links';
@@ -10,6 +11,7 @@ const md = new MarkdownIt({ html: true, linkify: true, typographer: false });
 md.use(taskLists, { enabled: false });
 md.use(links);
 md.use(images);
+md.use(codeBlocks);
 
 // DOMPurify's default URI allow-list plus blob:, the object URLs of images stored in this browser.
 const ALLOWED_URI = /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|blob):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i;

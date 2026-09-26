@@ -5,6 +5,14 @@
   --paper-raised: #ffffff;
   --paper-sunken: #f3f1ed;
   --paper-code: #f5f3ef;
+  /* Syntax (app extension, P-013): muted, one step below the accent's saturation. */
+  --syntax-keyword: #7b4a8c;
+  --syntax-string: #4d7a3a;
+  --syntax-number: #9a5b13;
+  --syntax-comment: #756f65;
+  --syntax-title: #2f5f8f;
+  --syntax-attr: #8a4b3c;
+  --syntax-meta: #5f5a52;
   --line: #e7e4de;
   --line-strong: #8d877d;
   --ink: #1b1a18;
@@ -63,6 +71,13 @@
     --paper-raised: #1c1c1a;
     --paper-sunken: #101010;
     --paper-code: #1a1a18;
+    --syntax-keyword: #c49bd6;
+    --syntax-string: #a3c98f;
+    --syntax-number: #e0b27a;
+    --syntax-comment: #8a857c;
+    --syntax-title: #92b7dc;
+    --syntax-attr: #d9a08f;
+    --syntax-meta: #a9a49b;
     --line: #2c2b28;
     --line-strong: #6e6961;
     --ink: #edebe7;
@@ -89,6 +104,13 @@
   --paper-raised: #1c1c1a;
   --paper-sunken: #101010;
   --paper-code: #1a1a18;
+  --syntax-keyword: #c49bd6;
+  --syntax-string: #a3c98f;
+  --syntax-number: #e0b27a;
+  --syntax-comment: #8a857c;
+  --syntax-title: #92b7dc;
+  --syntax-attr: #d9a08f;
+  --syntax-meta: #a9a49b;
   --line: #2c2b28;
   --line-strong: #6e6961;
   --ink: #edebe7;
