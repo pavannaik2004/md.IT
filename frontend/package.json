@@ -25,6 +25,7 @@
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@fontsource-variable/source-serif-4": "^5.3.0",
     "@lezer/highlight": "^1.2.4",
+    "@noble/hashes": "^2.4.0",
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^4.4.0",
     "dompurify": "^3.4.16",

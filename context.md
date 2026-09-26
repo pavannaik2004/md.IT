@@ -5,7 +5,7 @@ Single source of truth for project progress. **Read before starting any work; up
 ## Current state
 
 - **Phase:** 1 complete — merged to `main` via PR #1 (https://github.com/pavannaik2004/md.IT/pull/1), CI green
-- **Branch:** `phase-2-technical-rendering` (spec approved, plan written)
+- **Branch:** `phase-2-technical-rendering` (building Phase 2 — native execution)
 - **Next step:** user reviews the Phase 2 plan (`docs/superpowers/plans/2026-09-26-phase-2-technical-rendering.md`) and picks an execution method
 - **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; relative preview links navigate away; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
 
@@ -54,3 +54,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Browser check done: user tried the container at localhost:8080 and confirmed it works. Also verified with headless Edge (Playwright) against both the container and the dev server: live preview renders headings/bold/lists, content persists across reload, no console errors.
 - 2026-09-26 — Phase 2 brainstorming: images as tree files, no-navigate image rows with Insert in document, relative .md links open in workspace, two-stage rendering. Probed fake-indexeddb: Blob does not round-trip under jsdom, ArrayBuffer does. Wrote Phase 2 design spec. Decisions P-023…P-027.
 - 2026-09-26 — User approved the Phase 2 spec. Wrote the 11-task implementation plan. Settled while planning (spec updated): design-system class `md-img-missing`, a loading state for images whose bytes haven't loaded, notices owned by the Workspace, links to non-documents marked unsupported, editor `insertBlock` (images always on their own lines), no fallback folder (nothing else can be named `images`). Probed jsdom: `File.arrayBuffer` works; `execCommand`, `matchMedia`, `clipboard` are absent.
+- 2026-09-26 — Task 1: image storage — schema v2 (images metadata + imageData ArrayBuffer), image rules, add/rename/move/delete, shared sibling namespace, cascades, findOrCreateFolder, useImages (src/store/*; 169 tests).
