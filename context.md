@@ -58,3 +58,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Task 2: paths module — resolve relative hrefs (., .., /, case-insensitive, percent-decoding) and build relative hrefs (src/paths/; 177 tests).
 - 2026-09-26 — Task 3: renderer context, link rule (data-doc-id / data-missing), image rule ({width align}, missing and loading placeholders), blob: allowed by DOMPurify (src/renderer/; 200 tests).
 - 2026-09-26 — Task 4: CodeBlock markup (copy button, language label) with highlight.js for the nine PRD languages; --syntax-* tokens; mermaid placeholder with URI-encoded source (DOMPurify drops attribute values containing -->) (src/renderer/, ui/tokens.css, ui/components.css; 220 tests).
+- 2026-09-26 — Task 5: KaTeX math — in-house $ / $$ rules, inline and block errors, output spliced in after sanitizing at nonce placeholders (src/renderer/math.ts; 235 tests).

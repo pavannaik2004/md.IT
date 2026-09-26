@@ -12,4 +12,8 @@ export interface RenderContext {
 export interface RenderEnv {
   [key: string | symbol]: unknown;
   context?: RenderContext;
+  /** Random per render; only placeholders carrying it are replaced with trusted math HTML. */
+  nonce: string;
+  /** KaTeX output by placeholder index. */
+  math: string[];
 }
