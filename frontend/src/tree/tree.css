@@ -1,0 +1,14 @@
+.tree { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.tree-head { display: flex; align-items: center; justify-content: space-between; height: 40px; flex: none; padding: 0 var(--space-2) 0 var(--space-4); }
+.tree-head h2 { margin: 0; font: 600 14px/20px var(--font-sans); color: var(--ink); }
+.tree-head-actions { display: flex; gap: 2px; }
+.tree-rows { flex: 1; padding: 0 var(--space-2) var(--space-4); border-radius: var(--radius-md); }
+.tree-rows.is-drop-root { box-shadow: inset 0 0 0 1px var(--accent); }
+.tree-rename { padding: 2px var(--space-2) 2px 0; }
+.tree-rename .md-input { height: var(--control-sm); }
+.tree-message { padding: 0 var(--space-2) var(--space-2); }
+.move-targets { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 280px; overflow: auto; }
+.move-target { display: flex; align-items: center; gap: var(--space-2); height: var(--control-sm); padding-right: var(--space-2); border-radius: var(--radius-sm); color: var(--ink); cursor: pointer; }
+.move-target:hover { background: var(--paper-sunken); }
+.move-target input { margin: 0; accent-color: var(--accent); }
+.move-target input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
