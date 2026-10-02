@@ -42,9 +42,18 @@ export async function exportDocument(kind: DocumentExportKind, args: DocumentExp
   else await env.print(html, stem);
 }
 
-export async function exportProject(projectId: string, env: Pick<ExportEnv, 'save'> = defaultEnv): Promise<void> {
-  const snapshot = await readProjectSnapshot(projectId);
-  if (!snapshot) throw new ValidationError('This project isn’t in this browser.');
+/** The open document's editor text, which may be newer than what autosave has written. */
+export interface OpenDocumentText {
+  docId: string;
+  text: string;
+}
+
+export async function exportProject(projectId: string, env: Pick<ExportEnv, 'save'> = defaultEnv, open?: OpenDocumentText): Promise<void> {
+  const stored = await readProjectSnapshot(projectId);
+  if (!stored) throw new ValidationError('This project isn’t in this browser.');
+  const snapshot = open
+    ? { ...stored, documents: stored.documents.map((d) => (d.id === open.docId ? { ...d, content: open.text } : d)) }
+    : stored;
   const rendering = clampRendering(await getSetting<unknown>(SETTINGS.rendering, null));
   env.save(`${safeFileName(snapshot.project.name)}.zip`, bytesBlob(await exportProjectZip(snapshot, rendering), 'application/zip'));
 }

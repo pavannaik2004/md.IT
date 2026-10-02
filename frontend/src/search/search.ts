@@ -81,7 +81,9 @@ function snippetFor(text: string, found: readonly Range[], line: number, lineSta
   return { line, from: lineStart + firstStart, to: lineStart + firstEnd, text: `${prefix}${text.slice(cutStart, cutEnd)}${suffix}`, ranges };
 }
 
-function contentMatches(content: string, pattern: RegExp): { count: number; snippets: Snippet[] } {
+function contentMatches(raw: string, pattern: RegExp): { count: number; snippets: Snippet[] } {
+  // Offsets must match the editor, which counts any line break as one "\n".
+  const content = raw.replace(/\r\n?/g, '\n');
   let count = 0;
   const snippets: Snippet[] = [];
   let lineStart = 0;

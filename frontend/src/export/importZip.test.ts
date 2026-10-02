@@ -98,6 +98,31 @@ describe('parseProjectZip', () => {
     await expect(parseProjectZip(zip(files), 'x.zip')).rejects.toThrow(IMPORT_ERRORS.tooLarge);
   });
 
+  it('keeps names that start with a dot, ignoring only system clutter', async () => {
+    const parsed = await parseProjectZip(
+      zip({ '.todo.md': 'a', '.archive/old.md': 'b', '.DS_Store': 'x', '._.todo.md': 'x', 'Thumbs.db': 'x', '.git/config': 'x' }),
+      'x.zip',
+    );
+    expect(parsed.folders).toEqual([['.archive']]);
+    expect(parsed.documents.map((d) => [d.folder, d.title])).toEqual([
+      [[], '.todo.md'],
+      [['.archive'], 'old.md'],
+    ]);
+    expect(parsed.skipped).toEqual([]);
+  });
+
+  it('stores Windows line endings as \\n', async () => {
+    const parsed = await parseProjectZip(zip({ 'a.md': '# A\r\nb\rc\r\n' }), 'x.zip');
+    expect(parsed.documents[0]!.content).toBe('# A\nb\nc\n');
+  });
+
+  it('uses trimmed names, so a name with stray spaces clashes and is renamed instead of failing the import', async () => {
+    const parsed = await parseProjectZip(zip({ 'Docs /a.md': 'x', 'Docs/b.md': 'y' }), 'x.zip');
+    expect(parsed.folders).toEqual([['Docs'], ['Docs 2']]);
+    expect(parsed.documents.map((d) => d.folder)).toEqual([['Docs'], ['Docs 2']]);
+    expect(parsed.renamed).toEqual([{ from: 'Docs', to: 'Docs 2' }]);
+  });
+
   it('rejects zips with nothing to import', async () => {
     await expect(parseProjectZip(zip({ 'a.txt': 'x', 'Empty/': '' }), 'x.zip')).rejects.toThrow(IMPORT_ERRORS.empty);
   });

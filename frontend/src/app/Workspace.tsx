@@ -124,20 +124,20 @@ export function Workspace() {
   const runExport = useCallback(
     async (kind: ExportKind) => {
       try {
+        saveNow();
+        // The editor's text, not the debounced preview or the last autosave: exports include the last keystroke.
+        const text = editorRef.current?.getText() ?? draft.previewSource;
         if (kind === 'zip') {
-          await exportProject(projectId);
+          await exportProject(projectId, undefined, docId && docReady ? { docId, text } : undefined);
           return;
         }
         if (!docId) return;
-        saveNow();
-        // The editor's text, not the debounced preview: the export includes the last keystroke.
-        const text = editorRef.current?.getText() ?? draft.previewSource;
         await exportDocument(kind, { projectId, docId, text, rendering });
       } catch (error) {
         showNotice(`Couldn’t export: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
-    [projectId, docId, saveNow, draft.previewSource, rendering, showNotice],
+    [projectId, docId, docReady, saveNow, draft.previewSource, rendering, showNotice],
   );
 
   // Select a search match once its document's editor is mounted.

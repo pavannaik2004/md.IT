@@ -184,10 +184,10 @@ Paths come from the folder tree; names are already unique among siblings (P-008)
 
 1. Not readable as a zip → "This file isn’t a zip."
 2. Over 2,000 entries, or a total uncompressed size over 500 MB → "This zip is too large to import (over 2,000 files or 500 MB)." fflate's `unzipSync` filter sees each entry's sizes before inflating it, so skipped and oversized entries are never read.
-3. **Paths.** `\` becomes `/`. Entries with an empty, `.` or `..` segment, or an absolute path, are skipped ("Unsafe path"). `__MACOSX/` entries, names starting with `.`, and `Thumbs.db` are ignored silently.
+3. **Paths.** `\` becomes `/`. Entries with an empty, `.` or `..` segment, or an absolute path, are skipped ("Unsafe path"). Only system and tool clutter is ignored silently: `__MACOSX/`, `.git/`, `.DS_Store`, `._*` (AppleDouble), `Thumbs.db` and `desktop.ini`. Other names starting with `.` are kept, because md.IT allows them (P-008) and the zip must round-trip (amended after the final review).
 4. If every remaining entry shares one top folder, it is removed.
 5. **Manifest.** If a root `mdit.json` has `format: "mdit-project"`, its `name`, `description` and `rendering` (through `clampRendering`) are used. Without it, the name is the zip file name minus `.zip`.
-6. **Documents.** `.md` and `.markdown` files (case-insensitive) become documents, decoded as UTF-8 with the BOM removed; `.markdown` is renamed to `.md`.
+6. **Documents.** `.md` and `.markdown` files (case-insensitive) become documents, decoded as UTF-8 with the BOM removed, with `\r\n` and `\r` line endings converted to `\n` (the editor's form, so search offsets match); `.markdown` is renamed to `.md`. Names are trimmed by the store's rules before clashes are checked.
 7. **Images.** Files with a supported image extension (PNG, JPEG, GIF, WebP, SVG) are images, typed by their extension; those over 5 MB are skipped as "Larger than 5 MB".
 8. **Everything else** is skipped as "Not a Markdown document or image".
 9. **Folders.** They come from the paths of kept entries and from directory entries, so empty folders are kept.

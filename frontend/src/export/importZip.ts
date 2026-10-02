@@ -35,8 +35,9 @@ function splitPath(raw: string): Split | 'unsafe' | 'ignore' {
   const segments = path.split('/');
   if (dir) segments.pop();
   if (path.startsWith('/') || /^[a-z]:/i.test(path) || segments.some((s) => s === '' || s === '.' || s === '..')) return 'unsafe';
-  if (segments.some((s) => s === '__MACOSX' || s.startsWith('.'))) return 'ignore';
-  if (/^(thumbs\.db|desktop\.ini)$/i.test(segments[segments.length - 1] ?? '')) return 'ignore';
+  // Only operating-system and tool clutter is ignored: md.IT names may start with "." (P-008).
+  if (segments.some((s) => s === '__MACOSX' || s === '.git')) return 'ignore';
+  if (/^(\.ds_store|thumbs\.db|desktop\.ini|\._.*)$/i.test(segments[segments.length - 1] ?? '')) return 'ignore';
   return { segments, dir };
 }
 
@@ -134,13 +135,13 @@ export async function parseProjectZip(data: Uint8Array, fileName: string): Promi
     if (finalName !== wanted) renamed.push({ from: original, to: keyOf([...parent, finalName]) });
     return finalName;
   };
-  const valid = (segment: string, path: string): boolean => {
+  /** The name the store will keep (trimmed), or null after listing why it can't be used. */
+  const clean = (segment: string, path: string): string | null => {
     try {
-      normalizeName(segment);
-      return true;
+      return normalizeName(segment);
     } catch (error) {
       skipped.push({ path, reason: userMessage(error) });
-      return false;
+      return null;
     }
   };
 
@@ -160,8 +161,9 @@ export async function parseProjectZip(data: Uint8Array, fileName: string): Promi
   const folders: string[][] = [];
   for (const path of [...folderPaths.values()].sort((a, b) => a.length - b.length)) {
     const parent = finalFolder.get(keyOf(path.slice(0, -1)));
-    const folderName = path[path.length - 1]!;
-    if (!parent || !valid(folderName, `${keyOf(path)}/`)) continue;
+    if (!parent) continue;
+    const folderName = clean(path[path.length - 1]!, `${keyOf(path)}/`);
+    if (folderName === null) continue;
     const placed = [...parent, place(parent, folderName, folderName, '', ' ', keyOf(path))];
     finalFolder.set(keyOf(path), placed);
     folders.push(placed);
@@ -177,15 +179,18 @@ export async function parseProjectZip(data: Uint8Array, fileName: string): Promi
     const parent = finalFolder.get(keyOf(e.segments.slice(0, -1)));
     if (!parent) continue; // its folder was skipped and listed
     if (kind === 'document') {
-      const title = raw.replace(/\.markdown$/i, '.md');
-      if (!valid(title, e.name)) continue;
+      const title = clean(raw.replace(/\.markdown$/i, '.md'), e.name);
+      if (title === null) continue;
       const finalTitle = place(parent, title, title.slice(0, -3), title.slice(-3), ' ', e.name.replace(/\\/g, '/'));
-      documents.push({ folder: parent, title: finalTitle, content: new TextDecoder('utf-8').decode(e.bytes) });
+      // The editor works in \n; Windows (\r\n) and old Mac (\r) line endings are converted on the way in.
+      const content = new TextDecoder('utf-8').decode(e.bytes).replace(/\r\n?/g, '\n');
+      documents.push({ folder: parent, title: finalTitle, content });
     } else if (kind === 'image') {
-      if (!valid(raw, e.name)) continue;
-      const ext = extensionOf(raw);
-      const finalName = place(parent, raw, raw.slice(0, raw.length - ext.length), ext, '-', e.name.replace(/\\/g, '/'));
-      images.push({ folder: parent, name: finalName, contentType: imageTypeOf(raw, '')!, bytes: e.bytes.slice().buffer as ArrayBuffer });
+      const imageName = clean(raw, e.name);
+      if (imageName === null) continue;
+      const ext = extensionOf(imageName);
+      const finalName = place(parent, imageName, imageName.slice(0, imageName.length - ext.length), ext, '-', e.name.replace(/\\/g, '/'));
+      images.push({ folder: parent, name: finalName, contentType: imageTypeOf(imageName, '')!, bytes: e.bytes.slice().buffer as ArrayBuffer });
     } else {
       skipped.push({ path: e.name, reason: SKIP_REASONS.other }); // a mdit.json below the root
     }

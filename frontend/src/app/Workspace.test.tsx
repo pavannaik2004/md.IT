@@ -1,4 +1,5 @@
 import { EditorView } from '@codemirror/view';
+import { strFromU8, unzipSync } from 'fflate';
 import { act, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -131,6 +132,20 @@ describe('Workspace', () => {
     await user.keyboard('{Escape}');
     expect(box).toHaveValue('');
     expect(await screen.findByRole('tree', { name: 'Files' })).toBeInTheDocument();
+  });
+
+  it('includes the text typed just now in the project zip', async () => {
+    const user = userEvent.setup();
+    const { project, doc } = await projectWithDocument('# Hello');
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    const view = EditorView.findFromDOM(container.querySelector<HTMLElement>('.cm-editor')!)!;
+    act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: '\n\nJust typed' } }));
+    await user.click(screen.getByRole('button', { name: 'Export' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export project (.zip)' }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    const files = unzipSync(new Uint8Array(await saved[0]!.blob.arrayBuffer()));
+    expect(strFromU8(files['OS/Intro.md']!)).toBe('# Hello\n\nJust typed');
   });
 
   it('exports the text typed just now', async () => {

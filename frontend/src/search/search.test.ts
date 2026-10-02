@@ -69,6 +69,11 @@ describe('searchProject', () => {
     expect(searchProject('a*b', { folders: [], documents: docs, images: [] })).toEqual([]);
   });
 
+  it('gives editor offsets for documents stored with Windows line endings', () => {
+    const [result] = searchProject('foo', { folders: [], documents: [doc('d', 'D.md', 'a\r\nb\r\nfoo')], images: [] }) as ContentResult[];
+    expect(result!.snippets[0]).toMatchObject({ line: 2, from: 4, to: 7, text: 'foo' });
+  });
+
   it('stops at the result limit', () => {
     const many = Array.from({ length: 150 }, (_, n) => doc(`d${n}`, `Doc ${n}.md`, 'word'));
     expect(searchProject('word', { folders: [], documents: many, images: [] })).toHaveLength(MAX_RESULTS);
