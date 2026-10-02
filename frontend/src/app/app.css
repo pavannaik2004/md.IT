@@ -42,3 +42,6 @@ html, body, #root { height: 100%; }
 .ws-main { position: relative; }
 .ws-notice { position: absolute; left: 50%; bottom: var(--space-4); transform: translateX(-50%); width: min(480px, calc(100% - var(--space-8))); z-index: 5; }
 .ws-notice:empty { display: none; }
+.ws-panel { width: var(--sidebar-width); flex: none; display: flex; flex-direction: column; min-height: 0; background: var(--paper-sunken); border-left: 1px solid var(--line); }
+.ws-panel-head { flex: none; display: flex; justify-content: center; padding: var(--space-2); border-bottom: 1px solid var(--line); }
+.ws-panel-body { flex: 1; min-height: 0; overflow: auto; }

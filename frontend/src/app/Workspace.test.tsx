@@ -1,7 +1,7 @@
-import { createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { addImage, clearDatabase, createDocument, createFolder, createProject, getSetting, listFolders, saveDocumentContent, setSetting, SETTINGS } from '../store';
 import { Workspace } from './Workspace';
 
@@ -62,6 +62,33 @@ describe('Workspace', () => {
     await waitFor(() => expect(prose().style.getPropertyValue('--doc-line-height')).toBe('2'));
     expect(prose().style.getPropertyValue('--doc-font')).toBe('var(--font-sans)');
     expect(prose().style.getPropertyValue('--doc-padding')).toBe('16px');
+  });
+
+  it('shows the outline in the side panel and scrolls the preview to a heading', async () => {
+    const user = userEvent.setup();
+    const { project, doc } = await projectWithDocument('# Hello\n\nWorld\n\n## Next');
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    await user.click(screen.getByRole('button', { name: 'Show panel' }));
+    const outline = await screen.findByRole('navigation', { name: 'Outline' });
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
+    await user.click(within(outline).getByRole('button', { name: 'Next' }));
+    expect(scroll.mock.contexts).toContain(container.querySelector('.ws-preview [data-line="4"]'));
+    scroll.mockRestore();
+    expect(screen.getByRole('button', { name: 'Hide panel' })).toBeInTheDocument();
+    await waitFor(async () => expect(await getSetting(SETTINGS.panel, false)).toBe(true));
+  });
+
+  it('changes the rendering settings from the side panel', async () => {
+    const user = userEvent.setup();
+    const { project, doc } = await projectWithDocument();
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    await user.click(screen.getByRole('button', { name: 'Show panel' }));
+    await user.click(await screen.findByRole('radio', { name: 'Settings' }));
+    fireEvent.change(await screen.findByRole('slider', { name: 'Padding' }), { target: { value: '16' } });
+    expect(container.querySelector<HTMLElement>('.md-prose')!.style.getPropertyValue('--doc-padding')).toBe('16px');
+    await waitFor(async () => expect(await getSetting(SETTINGS.rendering, null)).toMatchObject({ padding: 16 }));
   });
 
   it('says so when the document is missing', async () => {

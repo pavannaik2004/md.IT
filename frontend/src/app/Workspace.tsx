@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { EditorHandle } from '../editor';
-import { render } from '../renderer';
+import { analyze, render } from '../renderer';
 import { toCssVars, useRenderingSettings } from '../settings';
 import { IMAGE_ACCEPT, SETTINGS, useProject, useSettingState, type ImageAsset } from '../store';
 import { FileTree } from '../tree';
@@ -10,6 +10,7 @@ import { DocumentArea } from './DocumentArea';
 import { addImagesNextTo, imageMarkdown } from './imageInsert';
 import { MissingPage } from './MissingPage';
 import { Notice, type NoticeMessage } from './Notice';
+import { SidePanel, type PanelTab } from './SidePanel';
 import { useResolvedTheme } from './theme';
 import { ThemeMenu } from './ThemeMenu';
 import { useDocumentDraft } from './useDocumentDraft';
@@ -28,17 +29,24 @@ export function Workspace() {
   const navigate = useNavigate();
   const project = useProject(projectId);
   const [mode, setMode] = useSettingState<ViewMode>(SETTINGS.mode, 'split');
+  const [panelOpen, setPanelOpen] = useSettingState<boolean>(SETTINGS.panel, false);
+  const [panelTab, setPanelTab] = useSettingState<PanelTab>(SETTINGS.panelTab, 'outline');
   const draft = useDocumentDraft(docId);
   const theme = useResolvedTheme();
-  const [rendering] = useRenderingSettings();
+  const [rendering, updateRendering, resetRendering] = useRenderingSettings();
   const proseStyle = useMemo(() => toCssVars(rendering) as CSSProperties, [rendering]);
   const { saveNow } = draft;
   const files = useProjectFiles(projectId, docId);
   const { index, docFolderId, imageUrls } = files;
   const html = useMemo(() => render(draft.previewSource, files.context), [draft.previewSource, files.context]);
   const editorRef = useRef<EditorHandle>(null);
+  const mainRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docReady = draft.status === 'ready';
+  const analysis = useMemo(
+    () => (panelOpen && panelTab !== 'settings' && docReady ? analyze(draft.previewSource) : null),
+    [panelOpen, panelTab, docReady, draft.previewSource],
+  );
 
   // Ctrl/Cmd+S anywhere saves now and never opens the browser's "Save page" dialog.
   useEffect(() => {
@@ -74,6 +82,15 @@ export function Workspace() {
       if (href) editorRef.current?.insertBlock(imageMarkdown(image.name, href));
     },
     [index, docFolderId],
+  );
+
+  // Outline clicks scroll whichever panes are visible to the heading.
+  const revealHeading = useCallback(
+    (line: number) => {
+      if (mode !== 'editor') mainRef.current?.querySelector<HTMLElement>(`.ws-preview [data-line="${line}"]`)?.scrollIntoView({ block: 'start' });
+      if (mode !== 'preview') editorRef.current?.revealLine(line);
+    },
+    [mode],
   );
 
   if (project === undefined) return <div className="ws" aria-busy="true" />;
@@ -114,6 +131,7 @@ export function Workspace() {
           {draft.status === 'ready' && (
             <SaveStatus state={draft.saveState} detail={draft.saveState === 'failed' ? 'your last changes are only in this tab' : undefined} />
           )}
+          <IconButton icon="sidebar" label={panelOpen ? 'Hide panel' : 'Show panel'} active={panelOpen} onClick={() => setPanelOpen(!panelOpen)} />
           <ThemeMenu />
         </div>
       </header>
@@ -128,7 +146,7 @@ export function Workspace() {
             imageUrls={imageUrls}
           />
         </aside>
-        <main className={`ws-main mode-${mode}`}>
+        <main ref={mainRef} className={`ws-main mode-${mode}`}>
           <DocumentArea
             docId={docId}
             draft={draft}
@@ -142,6 +160,17 @@ export function Workspace() {
           />
           <Notice notice={notice} onDismiss={dismissNotice} />
         </main>
+        {panelOpen && (
+          <SidePanel
+            tab={panelTab}
+            onTab={setPanelTab}
+            analysis={analysis}
+            onHeading={revealHeading}
+            rendering={rendering}
+            onRenderingChange={updateRendering}
+            onRenderingReset={resetRendering}
+          />
+        )}
       </div>
     </div>
   );
