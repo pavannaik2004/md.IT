@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { EditorHandle } from '../editor';
 import { render } from '../renderer';
+import { toCssVars, useRenderingSettings } from '../settings';
 import { IMAGE_ACCEPT, SETTINGS, useProject, useSettingState, type ImageAsset } from '../store';
 import { FileTree } from '../tree';
 import { IconButton, SaveStatus, SegmentedControl, Wordmark, type SegmentedOption } from '../ui';
@@ -29,6 +30,8 @@ export function Workspace() {
   const [mode, setMode] = useSettingState<ViewMode>(SETTINGS.mode, 'split');
   const draft = useDocumentDraft(docId);
   const theme = useResolvedTheme();
+  const [rendering] = useRenderingSettings();
+  const proseStyle = useMemo(() => toCssVars(rendering) as CSSProperties, [rendering]);
   const { saveNow } = draft;
   const files = useProjectFiles(projectId, docId);
   const { index, docFolderId, imageUrls } = files;
@@ -131,6 +134,7 @@ export function Workspace() {
             draft={draft}
             html={html}
             theme={theme}
+            proseStyle={proseStyle}
             editorRef={editorRef}
             onImageFiles={(list, at) => void insertFiles(list, at)}
             onOpenDocument={openDocument}

@@ -1,4 +1,5 @@
 import { createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { CSSProperties } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render as renderMarkdown } from '../renderer';
 import { Preview } from './Preview';
@@ -11,6 +12,13 @@ function setup(html: string) {
 }
 
 describe('Preview', () => {
+  it('puts the rendering variables on the prose element', () => {
+    render(
+      <Preview html="<p>x</p>" theme="light" style={{ '--doc-padding': '12px' } as CSSProperties} onOpenDocument={vi.fn()} onNotice={vi.fn()} />,
+    );
+    expect(document.querySelector<HTMLElement>('.md-prose')!.style.getPropertyValue('--doc-padding')).toBe('12px');
+  });
+
   it('opens a linked document instead of navigating the browser', () => {
     const { onOpenDocument } = setup('<p><a href="Threads.md" data-doc-id="d2">Next</a></p>');
     const link = screen.getByRole('link', { name: 'Next' });

@@ -2,7 +2,7 @@ import { createEvent, fireEvent, render, screen, waitFor } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { addImage, clearDatabase, createDocument, createFolder, createProject, getSetting, listFolders, saveDocumentContent, SETTINGS } from '../store';
+import { addImage, clearDatabase, createDocument, createFolder, createProject, getSetting, listFolders, saveDocumentContent, setSetting, SETTINGS } from '../store';
 import { Workspace } from './Workspace';
 
 function renderAt(path: string) {
@@ -51,6 +51,17 @@ describe('Workspace', () => {
     // Two live regions now: the save status and the (empty) notice.
     await waitFor(() => expect(screen.getAllByRole('status').some((el) => el.textContent?.includes('Saved locally'))).toBe(true));
     expect(await screen.findByRole('treeitem', { name: 'Intro.md' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('applies the rendering settings to the preview', async () => {
+    const { project, doc } = await projectWithDocument();
+    await setSetting(SETTINGS.rendering, { font: 'sans', letterSpacing: 0, lineHeight: 2, margin: 0, padding: 16 });
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    const prose = () => container.querySelector<HTMLElement>('.md-prose')!;
+    await waitFor(() => expect(prose().style.getPropertyValue('--doc-line-height')).toBe('2'));
+    expect(prose().style.getPropertyValue('--doc-font')).toBe('var(--font-sans)');
+    expect(prose().style.getPropertyValue('--doc-padding')).toBe('16px');
   });
 
   it('says so when the document is missing', async () => {

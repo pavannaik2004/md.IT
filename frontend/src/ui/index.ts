@@ -12,6 +12,7 @@ export { Kbd } from './Kbd';
 export { Menu, type MenuItem } from './Menu';
 export { MenuButton, type MenuButtonProps } from './MenuButton';
 export { Prose, type ProseProps } from './Prose';
+export { RangeField, type RangeFieldProps } from './RangeField';
 export { SaveStatus, type SaveStatusState } from './SaveStatus';
 export { SegmentedControl, type SegmentedControlProps, type SegmentedOption } from './SegmentedControl';
 export { TreeItem, type TreeItemProps } from './TreeItem';
