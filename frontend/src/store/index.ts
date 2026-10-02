@@ -10,4 +10,5 @@ export { checkImageFile, formatSize, IMAGE_ACCEPT, MAX_IMAGE_BYTES } from './ima
 export { addImage, addImageFiles, deleteImage, getImageBytes, listImages, moveImage, renameImage, type NewImageFile } from './images';
 export { createProject, deleteProject, getProject, listProjectSummaries, renameProject, setProjectDescription } from './projects';
 export { getSetting, setSetting, SETTINGS } from './settings';
+export { readProjectSnapshot, type ImageWithBytes, type ProjectSnapshot } from './snapshot';
 export type { Folder, ImageAsset, ImageType, MdDocument, Project, ProjectSummary } from './types';
