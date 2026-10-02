@@ -4,9 +4,9 @@ Single source of truth for project progress. **Read before starting any work; up
 
 ## Current state
 
-- **Phase:** 3 (customization and export) — building natively from the plan; see the log for the last finished task
-- **Branch:** `phase-3-customization-export` (from `main` at a8ca095, the PR #2 merge)
-- **Next step:** continue the plan task by task (ledger: `.superpowers/sdd/2026-10-02-phase-3-customization-export/progress.md`)
+- **Phase:** 3 (customization and export) built on `phase-3-customization-export` — whole-branch review next, then PR
+- **Branch:** `phase-3-customization-export` (18 plan tasks done; 412 tests)
+- **Next step:** fresh whole-branch review, fix Critical/Important findings, then the user picks how to finish (push + PR)
 - **Deferred minors from Phase 2 review:** editor drop of images mixed with other files silently ignores the others; an async image insert can land in another document after a switch, and the drop position isn’t clamped; every autosave rebuilds the path index and re-renders; a link to a folder says “isn’t in this project” instead of “Only links to documents…”; an image whose bytes are missing shows “Loading image…” forever; a raw-HTML `data-doc-id` isn’t escaped in the route or checked against the project; the hover thumbnail isn’t clamped to the viewport or moved on tree scroll
 - **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
 
@@ -22,7 +22,7 @@ Single source of truth for project progress. **Read before starting any work; up
 | --- | --- |
 | 1. Local editor | Done — merged 2026-09-26 (PR #1) |
 | 2. Technical rendering | Done — merged 2026-10-02 (PR #2) |
-| 3. Customization and export | In progress |
+| 3. Customization and export | Built — PR pending |
 | 4. Backend foundation | Not started |
 | 5. Login and versions | Not started |
 | 6. Kubernetes locally | Not started |
@@ -89,3 +89,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-10-02 — Phase 3 Task 15: Export menu (Markdown, HTML, PDF, project zip) wired into the workspace; exports use the editor's current text; failures show a notice. Built inline CSS confirmed to carry hashed woff2 asset URLs (export/actions.ts, download.ts, index.ts, app/ExportMenu.tsx, app/Workspace.tsx; 405 tests).
 - 2026-10-02 — Phase 3 Task 16: Import project (zip picker → dialog with summary, skipped and renamed entries, optional “Use its rendering settings”) and Export .zip in each project's menu (app/ImportDialog.tsx, app/ProjectList.tsx, ui/components.css .md-check, app.css; 410 tests).
 - 2026-10-02 — Phase 3 Task 17: vite-plugin-pwa 1.3 service worker (generateSW, prompt, no manifest): precache 141 entries / 5.4 MB incl. index.html, woff2 fonts, Mermaid chunks; UpdateNotice offers Reload (production only); nginx unchanged (sw.js and workbox-*.js fall under location / with no-cache) (vite.config.ts, app/UpdateNotice.tsx, App.tsx, vite-env.d.ts, test/pwa-register.ts; 412 tests).
+- 2026-10-02 — Phase 3 Task 18: verification. Clean `npm ci`: lint ✓, typecheck ✓, 412/412 tests ✓, build ✓. Main bundle 1,385 kB (was 1,296 kB); Mermaid and fflate only in lazy chunks. Service worker precaches 141 entries / 5.4 MB. Container: image builds; /, deep links and /sw.js 200 with no-cache and CSP. Headless Edge against the container: settings (Sans, padding 24px) apply and survive reload; outline lists Check/Diagram/Math/Code and puts the editor on `## Code`; stats correct (13 words, 4 headings, 1 code block, 1 diagram, 2 math, 1 image, 1 link); search marks `needle` and selects it in the editor; HTML export opened offline has 2 KaTeX, 1 SVG diagram, 1 data-URI image, copy button, Geist loaded (765 kB file) and looks like the preview (screenshots compared; blue tint on integral limits was subpixel AA, computed colour is ink); Export PDF opens the print frame with no CSP errors; zip export → Import shows “1 document, 1 image, 1 folder” and recreates the tree; offline reload of /, the workspace and a deep link all work. Only console errors: 3 ERR_INTERNET_DISCONNECTED during the offline navigations, none from page requests (likely the service worker update check). Manual “Save as PDF” check still to do by the user. README status and P-013 extensions updated.
