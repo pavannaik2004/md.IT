@@ -35,6 +35,12 @@ beforeEach(() => {
 });
 
 describe('renderDiagrams', () => {
+  it('takes diagram colours from the given token reader', async () => {
+    const { api, load } = fakeApi();
+    await renderDiagrams(host('graph A'), 'light', load, (name) => (name === '--paper' ? '#fffffe' : ''));
+    expect(api.initialize).toHaveBeenCalledWith(expect.objectContaining({ themeVariables: { background: '#fffffe' } }));
+  });
+
   it('never loads Mermaid for a document without diagrams', async () => {
     const load = vi.fn();
     await renderDiagrams(host(), 'light', load);

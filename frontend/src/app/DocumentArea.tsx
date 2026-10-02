@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import type { CSSProperties, Ref } from 'react';
 import { Editor, type EditorHandle } from '../editor';
 import { Preview, type Theme } from '../preview';
 import { EmptyState } from '../ui';
@@ -9,13 +9,14 @@ export interface DocumentAreaProps {
   draft: DocumentDraft;
   html: string;
   theme: Theme;
+  proseStyle?: CSSProperties;
   editorRef: Ref<EditorHandle>;
   onImageFiles: (files: File[], at: number | null) => void;
   onOpenDocument: (docId: string) => void;
   onNotice: (message: string) => void;
 }
 
-export function DocumentArea({ docId, draft, html, theme, editorRef, onImageFiles, onOpenDocument, onNotice }: DocumentAreaProps) {
+export function DocumentArea({ docId, draft, html, theme, proseStyle, editorRef, onImageFiles, onOpenDocument, onNotice }: DocumentAreaProps) {
   if (draft.status === 'none') {
     return (
       <div className="ws-empty">
@@ -48,7 +49,7 @@ export function DocumentArea({ docId, draft, html, theme, editorRef, onImageFile
         />
       </section>
       <section className="ws-preview" aria-label="Preview">
-        <Preview html={html} theme={theme} onOpenDocument={onOpenDocument} onNotice={onNotice} />
+        <Preview html={html} theme={theme} style={proseStyle} onOpenDocument={onOpenDocument} onNotice={onNotice} />
       </section>
     </>
   );

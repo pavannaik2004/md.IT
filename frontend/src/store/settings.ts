@@ -4,6 +4,9 @@ export const SETTINGS = {
   mode: 'ui.mode',
   theme: 'ui.theme',
   storageWarningDismissed: 'ui.storageWarningDismissed',
+  panel: 'ui.panel',
+  panelTab: 'ui.panelTab',
+  rendering: 'doc.rendering',
 } as const;
 
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {

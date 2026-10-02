@@ -30,4 +30,6 @@ docker run --rm -p 8080:80 mdit-frontend   # http://localhost:8080
 
 Phase 1 (local editor) complete: projects, folders and documents stored in this browser; CodeMirror editor; live preview; split/editor/preview modes; autosave.
 
-Phase 2 (technical rendering) complete: Mermaid diagrams, KaTeX math, highlighted code blocks with a copy button, and images stored in the project and shown in the tree (drop, paste or Insert image; `![alt](path){width=… align=…}`). See `context.md` for progress.
+Phase 2 (technical rendering) complete: Mermaid diagrams, KaTeX math, highlighted code blocks with a copy button, and images stored in the project and shown in the tree (drop, paste or Insert image; `![alt](path){width=… align=…}`).
+
+Phase 3 (customization and export) complete: rendering settings (font, letter spacing, line height, margin, padding), heading outline, document statistics, project search (Ctrl/Cmd+Shift+F), export as Markdown, self-contained HTML or PDF (print dialog), project export and import as .zip, and offline reload through a service worker. See `context.md` for progress.

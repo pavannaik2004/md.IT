@@ -1,5 +1,5 @@
 import 'katex/dist/katex.min.css';
-import { useLayoutEffect, useRef, type MouseEvent } from 'react';
+import { useLayoutEffect, useRef, type CSSProperties, type MouseEvent } from 'react';
 import { Prose } from '../ui';
 import { copyCode } from './copy';
 import { linkAction } from './links';
@@ -10,11 +10,13 @@ export interface PreviewProps {
   /** Sanitized HTML from the renderer. */
   html: string;
   theme: Theme;
+  /** --doc-* rendering variables for the prose element. */
+  style?: CSSProperties;
   onOpenDocument: (docId: string) => void;
   onNotice: (message: string) => void;
 }
 
-export function Preview({ html, theme, onOpenDocument, onNotice }: PreviewProps) {
+export function Preview({ html, theme, style, onOpenDocument, onNotice }: PreviewProps) {
   const rootRef = useRef<HTMLDivElement>(null);
 
   // After React has written the new HTML: fill diagram placeholders (cached ones synchronously).
@@ -39,7 +41,7 @@ export function Preview({ html, theme, onOpenDocument, onNotice }: PreviewProps)
   };
   return (
     <div className="md-preview" ref={rootRef} onClick={onClick}>
-      <Prose html={html} />
+      <Prose html={html} style={style} />
     </div>
   );
 }

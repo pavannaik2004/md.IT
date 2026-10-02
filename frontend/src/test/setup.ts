@@ -20,3 +20,8 @@ if (typeof document !== 'undefined' && !document.elementFromPoint) {
 let objectUrls = 0;
 URL.createObjectURL = () => `blob:test/${++objectUrls}`;
 URL.revokeObjectURL = () => {};
+
+// jsdom has no scrolling; components call scrollIntoView and tests spy on it.
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {};
+}

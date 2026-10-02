@@ -1,8 +1,10 @@
-import { createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { EditorView } from '@codemirror/view';
+import { strFromU8, unzipSync } from 'fflate';
+import { act, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { addImage, clearDatabase, createDocument, createFolder, createProject, getSetting, listFolders, saveDocumentContent, SETTINGS } from '../store';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { addImage, clearDatabase, createDocument, createFolder, createProject, getSetting, listFolders, saveDocumentContent, setSetting, SETTINGS } from '../store';
 import { Workspace } from './Workspace';
 
 function renderAt(path: string) {
@@ -29,7 +31,16 @@ const pngBytes = (name: string) => ({ name, type: 'image/png', bytes: new TextEn
 const fileInput = (container: HTMLElement) => container.querySelector<HTMLInputElement>('input[type="file"]')!;
 const editorText = (container: HTMLElement) => container.querySelector('.cm-content')?.textContent ?? '';
 
-beforeEach(clearDatabase);
+const saved = vi.hoisted(() => [] as Array<{ name: string; blob: Blob }>);
+vi.mock('../export/download', () => ({
+  download: (name: string, blob: Blob) => saved.push({ name, blob }),
+  bytesBlob: (bytes: Uint8Array, type: string) => new Blob([new Uint8Array(bytes)], { type }),
+}));
+
+beforeEach(async () => {
+  saved.length = 0;
+  await clearDatabase();
+});
 
 describe('Workspace', () => {
   it('says so when the project is not in this browser', async () => {
@@ -51,6 +62,104 @@ describe('Workspace', () => {
     // Two live regions now: the save status and the (empty) notice.
     await waitFor(() => expect(screen.getAllByRole('status').some((el) => el.textContent?.includes('Saved locally'))).toBe(true));
     expect(await screen.findByRole('treeitem', { name: 'Intro.md' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('applies the rendering settings to the preview', async () => {
+    const { project, doc } = await projectWithDocument();
+    await setSetting(SETTINGS.rendering, { font: 'sans', letterSpacing: 0, lineHeight: 2, margin: 0, padding: 16 });
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    const prose = () => container.querySelector<HTMLElement>('.md-prose')!;
+    await waitFor(() => expect(prose().style.getPropertyValue('--doc-line-height')).toBe('2'));
+    expect(prose().style.getPropertyValue('--doc-font')).toBe('var(--font-sans)');
+    expect(prose().style.getPropertyValue('--doc-padding')).toBe('16px');
+  });
+
+  it('shows the outline in the side panel and scrolls the preview to a heading', async () => {
+    const user = userEvent.setup();
+    const { project, doc } = await projectWithDocument('# Hello\n\nWorld\n\n## Next');
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    await user.click(screen.getByRole('button', { name: 'Show panel' }));
+    const outline = await screen.findByRole('navigation', { name: 'Outline' });
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
+    await user.click(within(outline).getByRole('button', { name: 'Next' }));
+    expect(scroll.mock.contexts).toContain(container.querySelector('.ws-preview [data-line="4"]'));
+    scroll.mockRestore();
+    expect(screen.getByRole('button', { name: 'Hide panel' })).toBeInTheDocument();
+    await waitFor(async () => expect(await getSetting(SETTINGS.panel, false)).toBe(true));
+  });
+
+  it('changes the rendering settings from the side panel', async () => {
+    const user = userEvent.setup();
+    const { project, doc } = await projectWithDocument();
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    await user.click(screen.getByRole('button', { name: 'Show panel' }));
+    await user.click(await screen.findByRole('radio', { name: 'Settings' }));
+    fireEvent.change(await screen.findByRole('slider', { name: 'Padding' }), { target: { value: '16' } });
+    expect(container.querySelector<HTMLElement>('.md-prose')!.style.getPropertyValue('--doc-padding')).toBe('16px');
+    await waitFor(async () => expect(await getSetting(SETTINGS.rendering, null)).toMatchObject({ padding: 16 }));
+  });
+
+  it('searches the project and opens a match selected in the editor', async () => {
+    const user = userEvent.setup();
+    const project = await createProject('OS');
+    const alpha = await createDocument(project.id, null, 'Alpha');
+    await saveDocumentContent(alpha.id, '# Alpha\n\nnothing here');
+    const beta = await createDocument(project.id, null, 'Beta');
+    await saveDocumentContent(beta.id, 'intro\n\nfind the needle here');
+    const { container } = renderAt(`/p/${project.id}/d/${alpha.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Alpha' });
+    await user.type(screen.getByRole('searchbox', { name: 'Search project' }), 'needle');
+    await user.click(await screen.findByRole('button', { name: /Line 3/ }));
+    await waitFor(() => expect(editorText(container)).toContain('find the needle here'));
+    const view = EditorView.findFromDOM(container.querySelector<HTMLElement>('.cm-editor')!)!;
+    await waitFor(() => expect(view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to)).toBe('needle'));
+  });
+
+  it('focuses search with Ctrl+Shift+F and clears it with Escape', async () => {
+    const user = userEvent.setup();
+    const { project, doc } = await projectWithDocument();
+    renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    fireEvent.keyDown(window, { key: 'F', ctrlKey: true, shiftKey: true });
+    const box = screen.getByRole('searchbox', { name: 'Search project' });
+    expect(box).toHaveFocus();
+    await user.type(box, 'zzz');
+    expect(await screen.findByText('No matches for “zzz”')).toBeInTheDocument();
+    expect(screen.queryByRole('tree')).toBeNull();
+    await user.keyboard('{Escape}');
+    expect(box).toHaveValue('');
+    expect(await screen.findByRole('tree', { name: 'Files' })).toBeInTheDocument();
+  });
+
+  it('includes the text typed just now in the project zip', async () => {
+    const user = userEvent.setup();
+    const { project, doc } = await projectWithDocument('# Hello');
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    const view = EditorView.findFromDOM(container.querySelector<HTMLElement>('.cm-editor')!)!;
+    act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: '\n\nJust typed' } }));
+    await user.click(screen.getByRole('button', { name: 'Export' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export project (.zip)' }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    const files = unzipSync(new Uint8Array(await saved[0]!.blob.arrayBuffer()));
+    expect(strFromU8(files['OS/Intro.md']!)).toBe('# Hello\n\nJust typed');
+  });
+
+  it('exports the text typed just now', async () => {
+    const user = userEvent.setup();
+    const { project, doc } = await projectWithDocument('# Hello');
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    const view = EditorView.findFromDOM(container.querySelector<HTMLElement>('.cm-editor')!)!;
+    act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: '\n\nJust typed' } }));
+    await user.click(screen.getByRole('button', { name: 'Export' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export Markdown' }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0]!.name).toBe('Intro.md');
+    expect(await saved[0]!.blob.text()).toBe('# Hello\n\nJust typed');
   });
 
   it('says so when the document is missing', async () => {

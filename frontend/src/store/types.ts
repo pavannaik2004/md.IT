@@ -57,3 +57,13 @@ export interface Setting {
 export interface ProjectSummary extends Project {
   documentCount: number;
 }
+
+/** A whole project to create in one go (zip import). Folder paths are names from the project root; [] is the root. */
+export interface ProjectImportData {
+  name: string;
+  description: string;
+  /** Parents before children. */
+  folders: string[][];
+  documents: Array<{ folder: string[]; title: string; content: string }>;
+  images: Array<{ folder: string[]; name: string; contentType: ImageType; bytes: ArrayBuffer }>;
+}

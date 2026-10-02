@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ConfirmDialog, TextFieldDialog } from '../dialogs';
+import { exportProject } from '../export';
 import { plural } from '../lib/text';
 import { formatRelativeTime } from '../lib/time';
 import {
-  createProject, deleteProject, renameProject, setProjectDescription, useProjectSummaries, type ProjectSummary,
+  createProject, deleteProject, renameProject, setProjectDescription, useProjectSummaries, userMessage, type ProjectSummary,
 } from '../store';
-import { Button, EmptyState, MenuButton, Wordmark } from '../ui';
+import { Button, Callout, EmptyState, IconButton, MenuButton, Wordmark } from '../ui';
+import { ImportDialog } from './ImportDialog';
 import { StorageWarning } from './StorageWarning';
 import { ThemeMenu } from './ThemeMenu';
 
@@ -15,6 +17,7 @@ type ProjectDialog =
   | { kind: 'rename'; project: ProjectSummary }
   | { kind: 'describe'; project: ProjectSummary }
   | { kind: 'delete'; project: ProjectSummary }
+  | { kind: 'import'; file: File }
   | null;
 
 function deleteMessage(project: ProjectSummary): string {
@@ -28,6 +31,10 @@ export function ProjectList() {
   const [dialog, setDialog] = useState<ProjectDialog>(null);
   const close = () => setDialog(null);
   const open = (id: string) => navigate(`/p/${id}`);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const exportZip = (project: ProjectSummary) =>
+    void exportProject(project.id).catch((err: unknown) => setError(`Couldn’t export: ${userMessage(err)}`));
   const newProjectButton = (
     <Button variant="primary" icon="plus" onClick={() => setDialog({ kind: 'create' })}>
       New project
@@ -45,8 +52,28 @@ export function ProjectList() {
         <StorageWarning />
         <div className="projects-head">
           <h1>Projects</h1>
-          {projects && projects.length > 0 && newProjectButton}
+          <div className="projects-actions">
+            <Button onClick={() => importInputRef.current?.click()}>Import project</Button>
+            {projects && projects.length > 0 && newProjectButton}
+          </div>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".zip,application/zip"
+            hidden
+            tabIndex={-1}
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = '';
+              if (file) setDialog({ kind: 'import', file });
+            }}
+          />
         </div>
+        {error && (
+          <Callout tone="danger" actions={<IconButton icon="x" label="Dismiss" onClick={() => setError(null)} />}>
+            {error}
+          </Callout>
+        )}
         {projects?.length === 0 && (
           <EmptyState icon="folder" title="No projects yet" action={newProjectButton}>
             Projects live in this browser. Create one to start writing.
@@ -69,6 +96,7 @@ export function ProjectList() {
                     { label: 'Open', icon: 'folder-open', onSelect: () => open(project.id) },
                     { label: 'Rename', icon: 'pencil', onSelect: () => setDialog({ kind: 'rename', project }) },
                     { label: 'Edit description', onSelect: () => setDialog({ kind: 'describe', project }) },
+                    { label: 'Export .zip', icon: 'download', onSelect: () => exportZip(project) },
                     'separator',
                     { label: 'Delete', icon: 'trash', danger: true, onSelect: () => setDialog({ kind: 'delete', project }) },
                   ]}
@@ -112,6 +140,16 @@ export function ProjectList() {
           onClose={close}
           onSubmit={async (text) => {
             await setProjectDescription(dialog.project.id, text);
+          }}
+        />
+      )}
+      {dialog?.kind === 'import' && (
+        <ImportDialog
+          file={dialog.file}
+          onClose={close}
+          onImported={(id) => {
+            close();
+            open(id);
           }}
         />
       )}
