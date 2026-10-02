@@ -23,6 +23,10 @@ export interface FileTreeProps {
   onInsertImage?: (image: ImageAsset) => void;
   /** Object URLs by image id, for hover thumbnails. */
   imageUrls?: ReadonlyMap<string, string>;
+  /** Open the folders above this item, then focus and scroll to its row (search results). */
+  revealId?: string | null;
+  /** Called once a reveal has been handled. */
+  onRevealed?: () => void;
 }
 
 type TreeDialog = { kind: 'move'; node: TreeNode } | { kind: 'delete'; node: TreeNode } | null;
@@ -41,7 +45,7 @@ function hasFiles(event: DragEvent): boolean {
   return Array.from(event.dataTransfer?.types ?? []).includes('Files');
 }
 
-export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted, onInsertImage, imageUrls }: FileTreeProps) {
+export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted, onInsertImage, imageUrls, revealId, onRevealed }: FileTreeProps) {
   const folders = useFolders(projectId);
   const documents = useDocuments(projectId);
   const images = useImages(projectId);
@@ -53,6 +57,8 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted, onIn
   const [error, setError] = useState<string | null>(null);
   const [thumb, setThumb] = useState<{ id: string; rect: DOMRect } | null>(null);
   const thumbTimer = useRef<number | undefined>(undefined);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
 
   const openFolders = (ids: readonly string[]) => setOpen((prev) => withAll(prev, ids));
 
@@ -62,6 +68,28 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted, onIn
     const doc = documents.find((d) => d.id === activeDocId);
     if (doc) setOpen((prev) => withAll(prev, ancestorFolderIds(folders, doc.folderId)));
   }, [activeDocId, folders, documents]);
+
+  // Search asked to show an item: open the folders above it, then focus its row once it is rendered.
+  useEffect(() => {
+    if (!revealId || !folders || !documents || !images) return;
+    const folder = folders.find((f) => f.id === revealId);
+    const item = folder ?? documents.find((d) => d.id === revealId) ?? images.find((i) => i.id === revealId);
+    if (item) {
+      const parentId = folder ? folder.parentFolderId : (item as { folderId: string | null }).folderId;
+      setOpen((prev) => withAll(prev, ancestorFolderIds(folders, parentId)));
+      setFocusId(revealId);
+    }
+    onRevealed?.();
+  }, [revealId, folders, documents, images, onRevealed]);
+
+  useEffect(() => {
+    if (!focusId) return;
+    const row = rootRef.current?.querySelector<HTMLElement>(`[data-id="${focusId}"]`);
+    if (!row) return;
+    row.scrollIntoView({ block: 'nearest' });
+    row.focus();
+    setFocusId(null);
+  });
 
   useEffect(() => () => window.clearTimeout(thumbTimer.current), []);
 
@@ -192,7 +220,7 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted, onIn
   const thumbUrl = thumb ? imageUrls?.get(thumb.id) : undefined;
 
   return (
-    <div className="tree">
+    <div className="tree" ref={rootRef}>
       <div className="tree-head">
         <h2>Files</h2>
         <div className="tree-head-actions">
@@ -245,6 +273,7 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted, onIn
             ) : (
               <TreeItem
                 key={node.id}
+                data-id={node.id}
                 kind={node.kind}
                 name={node.name}
                 depth={node.depth}

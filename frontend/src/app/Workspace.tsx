@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { Link, useNavigate, useParams } from 'react-router';
 import type { EditorHandle } from '../editor';
 import { analyze, render } from '../renderer';
+import { SEARCH_INPUT_ID, SearchBox, SearchResults, type SearchMatch } from '../search';
 import { toCssVars, useRenderingSettings } from '../settings';
 import { IMAGE_ACCEPT, SETTINGS, useProject, useSettingState, type ImageAsset } from '../store';
 import { FileTree } from '../tree';
@@ -47,13 +48,22 @@ export function Workspace() {
     () => (panelOpen && panelTab !== 'settings' && docReady ? analyze(draft.previewSource) : null),
     [panelOpen, panelTab, docReady, draft.previewSource],
   );
+  const [query, setQuery] = useState('');
+  const searching = query.trim() !== '';
+  const [revealId, setRevealId] = useState<string | null>(null);
+  const [pendingSelect, setPendingSelect] = useState<({ docId: string } & SearchMatch) | null>(null);
 
-  // Ctrl/Cmd+S anywhere saves now and never opens the browser's "Save page" dialog.
+  // Ctrl/Cmd+S saves now (never the browser's "Save page"); Ctrl/Cmd+Shift+F focuses project search.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 's') {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === 's') {
         event.preventDefault();
         saveNow();
+      } else if (key === 'f' && event.shiftKey) {
+        event.preventDefault();
+        document.getElementById(SEARCH_INPUT_ID)?.focus();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -92,6 +102,29 @@ export function Workspace() {
     },
     [mode],
   );
+
+  const openFromSearch = useCallback(
+    (id: string, match?: SearchMatch) => {
+      if (match) {
+        setPendingSelect({ docId: id, ...match });
+        if (mode === 'preview') setMode('split'); // the match is selected in the editor, so show it
+      }
+      openDocument(id);
+    },
+    [mode, setMode, openDocument],
+  );
+  const revealFromSearch = useCallback((id: string) => {
+    setQuery('');
+    setRevealId(id);
+  }, []);
+  const clearReveal = useCallback(() => setRevealId(null), []);
+
+  // Select a search match once its document's editor is mounted.
+  useEffect(() => {
+    if (!pendingSelect || pendingSelect.docId !== docId || !docReady) return;
+    editorRef.current?.select(pendingSelect.from, pendingSelect.to);
+    setPendingSelect(null);
+  }, [pendingSelect, docId, docReady]);
 
   if (project === undefined) return <div className="ws" aria-busy="true" />;
   if (project === null) {
@@ -137,14 +170,20 @@ export function Workspace() {
       </header>
       <div className="ws-body">
         <aside className="ws-tree" aria-label="Project files">
-          <FileTree
-            projectId={projectId}
-            activeDocId={docId}
-            onOpen={openDocument}
-            onActiveDeleted={closeDocument}
-            onInsertImage={docReady ? insertImage : undefined}
-            imageUrls={imageUrls}
-          />
+          <SearchBox value={query} onChange={setQuery} />
+          {searching && <SearchResults projectId={projectId} query={query} onOpenDocument={openFromSearch} onReveal={revealFromSearch} />}
+          <div className="ws-tree-files" hidden={searching}>
+            <FileTree
+              projectId={projectId}
+              activeDocId={docId}
+              onOpen={openDocument}
+              onActiveDeleted={closeDocument}
+              onInsertImage={docReady ? insertImage : undefined}
+              imageUrls={imageUrls}
+              revealId={revealId}
+              onRevealed={clearReveal}
+            />
+          </div>
         </aside>
         <main ref={mainRef} className={`ws-main mode-${mode}`}>
           <DocumentArea

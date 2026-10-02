@@ -16,6 +16,18 @@ function renderTree(projectId: string, activeDocId?: string, extra: Partial<File
 const png = (name: string) => ({ name, type: 'image/png', bytes: new TextEncoder().encode('x').buffer as ArrayBuffer });
 
 describe('FileTree', () => {
+  it('reveals an item that search asked for', async () => {
+    const project = await createProject('OS');
+    const outer = await createFolder(project.id, null, 'Outer');
+    const inner = await createFolder(project.id, outer.id, 'Inner');
+    const image = await addImage(project.id, inner.id, png('pic.png'));
+    const onRevealed = vi.fn();
+    renderTree(project.id, undefined, { revealId: image.id, onRevealed });
+    const row = await screen.findByRole('treeitem', { name: 'pic.png' });
+    await waitFor(() => expect(row).toHaveFocus());
+    expect(onRevealed).toHaveBeenCalled();
+  });
+
   it('creates a document from the empty state and names it', async () => {
     const user = userEvent.setup();
     const project = await createProject('OS');

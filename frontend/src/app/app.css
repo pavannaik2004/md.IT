@@ -45,3 +45,5 @@ html, body, #root { height: 100%; }
 .ws-panel { width: var(--sidebar-width); flex: none; display: flex; flex-direction: column; min-height: 0; background: var(--paper-sunken); border-left: 1px solid var(--line); }
 .ws-panel-head { flex: none; display: flex; justify-content: center; padding: var(--space-2); border-bottom: 1px solid var(--line); }
 .ws-panel-body { flex: 1; min-height: 0; overflow: auto; }
+.ws-tree-files { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ws-tree-files[hidden] { display: none; }

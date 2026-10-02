@@ -1,3 +1,4 @@
+import { EditorView } from '@codemirror/view';
 import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -89,6 +90,38 @@ describe('Workspace', () => {
     fireEvent.change(await screen.findByRole('slider', { name: 'Padding' }), { target: { value: '16' } });
     expect(container.querySelector<HTMLElement>('.md-prose')!.style.getPropertyValue('--doc-padding')).toBe('16px');
     await waitFor(async () => expect(await getSetting(SETTINGS.rendering, null)).toMatchObject({ padding: 16 }));
+  });
+
+  it('searches the project and opens a match selected in the editor', async () => {
+    const user = userEvent.setup();
+    const project = await createProject('OS');
+    const alpha = await createDocument(project.id, null, 'Alpha');
+    await saveDocumentContent(alpha.id, '# Alpha\n\nnothing here');
+    const beta = await createDocument(project.id, null, 'Beta');
+    await saveDocumentContent(beta.id, 'intro\n\nfind the needle here');
+    const { container } = renderAt(`/p/${project.id}/d/${alpha.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Alpha' });
+    await user.type(screen.getByRole('searchbox', { name: 'Search project' }), 'needle');
+    await user.click(await screen.findByRole('button', { name: /Line 3/ }));
+    await waitFor(() => expect(editorText(container)).toContain('find the needle here'));
+    const view = EditorView.findFromDOM(container.querySelector<HTMLElement>('.cm-editor')!)!;
+    await waitFor(() => expect(view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to)).toBe('needle'));
+  });
+
+  it('focuses search with Ctrl+Shift+F and clears it with Escape', async () => {
+    const user = userEvent.setup();
+    const { project, doc } = await projectWithDocument();
+    renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    fireEvent.keyDown(window, { key: 'F', ctrlKey: true, shiftKey: true });
+    const box = screen.getByRole('searchbox', { name: 'Search project' });
+    expect(box).toHaveFocus();
+    await user.type(box, 'zzz');
+    expect(await screen.findByText('No matches for “zzz”')).toBeInTheDocument();
+    expect(screen.queryByRole('tree')).toBeNull();
+    await user.keyboard('{Escape}');
+    expect(box).toHaveValue('');
+    expect(await screen.findByRole('tree', { name: 'Files' })).toBeInTheDocument();
   });
 
   it('says so when the document is missing', async () => {

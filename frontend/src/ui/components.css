@@ -199,3 +199,4 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .md-code .hljs-meta, .md-code .hljs-doctag, .md-code .hljs-tag, .md-code .hljs-punctuation { color: var(--syntax-meta); }
 .md-code .hljs-emphasis { font-style: italic; }
 .md-code .hljs-strong { font-weight: 600; }
+.md-mark { background: var(--marker); color: var(--ink); border-radius: 2px; padding: 0 1px; }
