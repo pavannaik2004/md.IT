@@ -2,8 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { render } from './render';
 
 describe('render', () => {
+  it('marks headings with their source line', () => {
+    const html = render('# One\n\ntext\n\n## Two');
+    expect(html).toContain('<h1 data-line="0">One</h1>');
+    expect(html).toContain('<h2 data-line="4">Two</h2>');
+  });
+
   it('renders GFM headings, tables, strikethrough', () => {
-    expect(render('# Title')).toContain('<h1>Title</h1>');
+    expect(render('# Title')).toContain('<h1 data-line="0">Title</h1>');
     const table = render('| a | b |\n|---|---|\n| 1 | 2 |');
     expect(table).toContain('<table>');
     expect(table).toContain('<td>1</td>');
