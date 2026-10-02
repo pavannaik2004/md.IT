@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { EditorHandle } from '../editor';
+import { exportDocument, exportProject } from '../export';
 import { analyze, render } from '../renderer';
 import { SEARCH_INPUT_ID, SearchBox, SearchResults, type SearchMatch } from '../search';
 import { toCssVars, useRenderingSettings } from '../settings';
@@ -8,6 +9,7 @@ import { IMAGE_ACCEPT, SETTINGS, useProject, useSettingState, type ImageAsset } 
 import { FileTree } from '../tree';
 import { IconButton, SaveStatus, SegmentedControl, Wordmark, type SegmentedOption } from '../ui';
 import { DocumentArea } from './DocumentArea';
+import { ExportMenu, type ExportKind } from './ExportMenu';
 import { addImagesNextTo, imageMarkdown } from './imageInsert';
 import { MissingPage } from './MissingPage';
 import { Notice, type NoticeMessage } from './Notice';
@@ -119,6 +121,25 @@ export function Workspace() {
   }, []);
   const clearReveal = useCallback(() => setRevealId(null), []);
 
+  const runExport = useCallback(
+    async (kind: ExportKind) => {
+      try {
+        if (kind === 'zip') {
+          await exportProject(projectId);
+          return;
+        }
+        if (!docId) return;
+        saveNow();
+        // The editor's text, not the debounced preview: the export includes the last keystroke.
+        const text = editorRef.current?.getText() ?? draft.previewSource;
+        await exportDocument(kind, { projectId, docId, text, rendering });
+      } catch (error) {
+        showNotice(`Couldn’t export: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [projectId, docId, saveNow, draft.previewSource, rendering, showNotice],
+  );
+
   // Select a search match once its document's editor is mounted.
   useEffect(() => {
     if (!pendingSelect || pendingSelect.docId !== docId || !docReady) return;
@@ -161,6 +182,7 @@ export function Workspace() {
               void insertFiles(list, null);
             }}
           />
+          <ExportMenu canExportDocument={docReady} onExport={(kind) => void runExport(kind)} />
           {draft.status === 'ready' && (
             <SaveStatus state={draft.saveState} detail={draft.saveState === 'failed' ? 'your last changes are only in this tab' : undefined} />
           )}

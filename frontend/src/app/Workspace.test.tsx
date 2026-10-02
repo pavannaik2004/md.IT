@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view';
-import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -30,7 +30,16 @@ const pngBytes = (name: string) => ({ name, type: 'image/png', bytes: new TextEn
 const fileInput = (container: HTMLElement) => container.querySelector<HTMLInputElement>('input[type="file"]')!;
 const editorText = (container: HTMLElement) => container.querySelector('.cm-content')?.textContent ?? '';
 
-beforeEach(clearDatabase);
+const saved = vi.hoisted(() => [] as Array<{ name: string; blob: Blob }>);
+vi.mock('../export/download', () => ({
+  download: (name: string, blob: Blob) => saved.push({ name, blob }),
+  bytesBlob: (bytes: Uint8Array, type: string) => new Blob([new Uint8Array(bytes)], { type }),
+}));
+
+beforeEach(async () => {
+  saved.length = 0;
+  await clearDatabase();
+});
 
 describe('Workspace', () => {
   it('says so when the project is not in this browser', async () => {
@@ -122,6 +131,20 @@ describe('Workspace', () => {
     await user.keyboard('{Escape}');
     expect(box).toHaveValue('');
     expect(await screen.findByRole('tree', { name: 'Files' })).toBeInTheDocument();
+  });
+
+  it('exports the text typed just now', async () => {
+    const user = userEvent.setup();
+    const { project, doc } = await projectWithDocument('# Hello');
+    const { container } = renderAt(`/p/${project.id}/d/${doc.id}`);
+    await screen.findByRole('heading', { level: 1, name: 'Hello' });
+    const view = EditorView.findFromDOM(container.querySelector<HTMLElement>('.cm-editor')!)!;
+    act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: '\n\nJust typed' } }));
+    await user.click(screen.getByRole('button', { name: 'Export' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export Markdown' }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0]!.name).toBe('Intro.md');
+    expect(await saved[0]!.blob.text()).toBe('# Hello\n\nJust typed');
   });
 
   it('says so when the document is missing', async () => {
