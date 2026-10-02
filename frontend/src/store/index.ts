@@ -11,5 +11,6 @@ export { addImage, addImageFiles, deleteImage, getImageBytes, listImages, moveIm
 export { nameKey, nextAvailableName, normalizeName } from './names';
 export { createProject, deleteProject, getProject, listProjectSummaries, renameProject, setProjectDescription } from './projects';
 export { getSetting, setSetting, SETTINGS } from './settings';
+export { importProject } from './importProject';
 export { readProjectSnapshot, type ImageWithBytes, type ProjectSnapshot } from './snapshot';
 export type { Folder, ImageAsset, ImageType, MdDocument, Project, ProjectImportData, ProjectSummary } from './types';
