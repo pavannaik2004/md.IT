@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { strToU8, zipSync } from 'fflate';
 import { MemoryRouter, Route, Routes, useParams } from 'react-router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearDatabase, createDocument, createProject, getSetting, listProjectSummaries, SETTINGS } from '../store';
 import { ProjectList } from './ProjectList';
 
@@ -21,9 +22,41 @@ function renderList() {
   );
 }
 
-beforeEach(clearDatabase);
+const saved = vi.hoisted(() => [] as Array<{ name: string; blob: Blob }>);
+vi.mock('../export/download', () => ({
+  download: (name: string, blob: Blob) => saved.push({ name, blob }),
+  bytesBlob: (bytes: Uint8Array, type: string) => new Blob([new Uint8Array(bytes)], { type }),
+}));
+
+beforeEach(async () => {
+  saved.length = 0;
+  await clearDatabase();
+});
 
 describe('ProjectList', () => {
+  it('imports a project zip and opens it', async () => {
+    const user = userEvent.setup();
+    const { container } = renderList();
+    await screen.findByText('No projects yet');
+    const data = zipSync({ 'Notes/a.md': strToU8('# A') });
+    fireEvent.change(container.querySelector<HTMLInputElement>('input[type="file"]')!, {
+      target: { files: [new File([new Uint8Array(data)], 'Notes.zip', { type: 'application/zip' })] },
+    });
+    await user.click(await screen.findByRole('button', { name: 'Import' }));
+    expect(await screen.findByText(/^Opened /)).toBeInTheDocument();
+    expect((await listProjectSummaries()).map((p) => p.name)).toEqual(['Notes']);
+  });
+
+  it('exports a project as a zip from its menu', async () => {
+    const user = userEvent.setup();
+    const project = await createProject('OS');
+    await createDocument(project.id, null, 'Intro');
+    renderList();
+    await user.click(await screen.findByRole('button', { name: 'Actions for OS' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export .zip' }));
+    await waitFor(() => expect(saved.map((s) => s.name)).toEqual(['OS.zip']));
+  });
+
   it('creates a project from the empty state and opens it', async () => {
     const user = userEvent.setup();
     renderList();
