@@ -75,3 +75,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-10-02 — Phase 3 Task 1: rendering settings model (defaults, limits, clamp, CSS variables) and useRenderingSettings hook; settings keys doc.rendering, ui.panel, ui.panelTab (frontend/src/settings/, store/settings.ts; 311 tests).
 - 2026-10-02 — Phase 3 Task 2: RangeField (ported, controlled), SettingsPanel, and rendering settings applied as --doc-* variables on the preview's .md-prose (ui/RangeField.tsx, settings/SettingsPanel.tsx, preview/Preview.tsx, app/DocumentArea.tsx, app/Workspace.tsx; 320 tests).
 - 2026-10-02 — Phase 3 Task 3: shared markdown-it instance (renderer/md.ts), headings carry data-line, analyze() for outline and statistics; escapeHtml exported (renderer/; 327 tests).
+- 2026-10-02 — Phase 3 Task 4: editor handle gains revealLine, select and getText (editor/Editor.tsx; 331 tests).

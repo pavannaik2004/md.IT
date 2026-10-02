@@ -14,6 +14,12 @@ export interface EditorProps {
 export interface EditorHandle {
   /** Insert `text` as its own block at `at`, or at the cursor (the end if the editor never had focus). One undo step. */
   insertBlock(text: string, at?: number | null): void;
+  /** Put the cursor at the start of 0-based `line` (clamped) and scroll it to the top. */
+  revealLine(line: number): void;
+  /** Select [from, to) (clamped) and scroll it into view. */
+  select(from: number, to: number): void;
+  /** The current text, including edits not yet saved. */
+  getText(): string;
 }
 
 /** Uncontrolled CodeMirror editor. Give it a `key` per document to load different content. */
@@ -43,6 +49,27 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ in
         userEvent: 'input.paste',
       });
       focusedRef.current = true; // later inserts follow this one
+    },
+    revealLine(line) {
+      const view = viewRef.current;
+      if (!view) return;
+      const { doc } = view.state;
+      const pos = doc.line(Math.min(Math.max(line + 1, 1), doc.lines)).from;
+      view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'start' }) });
+      view.focus();
+      focusedRef.current = true;
+    },
+    select(from, to) {
+      const view = viewRef.current;
+      if (!view) return;
+      const clamp = (n: number) => Math.min(Math.max(n, 0), view.state.doc.length);
+      const anchor = clamp(from);
+      view.dispatch({ selection: { anchor, head: clamp(to) }, effects: EditorView.scrollIntoView(anchor, { y: 'center' }) });
+      view.focus();
+      focusedRef.current = true;
+    },
+    getText() {
+      return viewRef.current?.state.doc.toString() ?? '';
     },
   }), []);
 

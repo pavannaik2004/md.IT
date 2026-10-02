@@ -106,3 +106,40 @@ describe('Editor insert and images', () => {
     expect(onImageFiles).not.toHaveBeenCalled();
   });
 });
+
+function setupWithHandle(initialContent: string) {
+  const ref = createRef<EditorHandle>();
+  const { container } = render(<Editor ref={ref} initialContent={initialContent} onChange={vi.fn()} onSave={vi.fn()} />);
+  const view = EditorView.findFromDOM(container.querySelector<HTMLElement>('.cm-editor')!)!;
+  return { handle: () => ref.current!, view };
+}
+
+describe('Editor handle navigation', () => {
+  it('reveals a line with the cursor at its start', () => {
+    const { handle, view } = setupWithHandle('a\nbb\nccc');
+    act(() => handle().revealLine(2));
+    expect(view.state.selection.main.head).toBe(5);
+  });
+
+  it('clamps a line past either end', () => {
+    const { handle, view } = setupWithHandle('a\nbb\nccc');
+    act(() => handle().revealLine(99));
+    expect(view.state.selection.main.head).toBe(5);
+    act(() => handle().revealLine(-3));
+    expect(view.state.selection.main.head).toBe(0);
+  });
+
+  it('selects a range, clamped to the document', () => {
+    const { handle, view } = setupWithHandle('hello world');
+    act(() => handle().select(6, 11));
+    expect(view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to)).toBe('world');
+    act(() => handle().select(6, 500));
+    expect(view.state.selection.main.to).toBe(11);
+  });
+
+  it('returns the text typed so far', () => {
+    const { handle, view } = setupWithHandle('a');
+    act(() => view.dispatch({ changes: { from: 1, insert: 'bc' } }));
+    expect(handle().getText()).toBe('abc');
+  });
+});
