@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createPathIndex } from '../paths';
-import { createRenderContext } from './useProjectFiles';
+import { createPathIndex } from './paths';
+import { createRenderContext } from './renderContext';
 
 const index = createPathIndex(
   [{ id: 'img', parentFolderId: null, name: 'images' }],

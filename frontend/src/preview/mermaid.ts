@@ -3,6 +3,11 @@ import { readDiagramSource } from '../renderer';
 export type Theme = 'light' | 'dark';
 export type MermaidApi = Pick<(typeof import('mermaid'))['default'], 'initialize' | 'render'>;
 
+/** Reads a design token, e.g. '--paper'. Exports pass the light theme's values (P-035). */
+export type TokenReader = (name: string) => string;
+
+const documentTokens: TokenReader = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
 type Outcome = { svg: string } | { message: string };
 
 const MAX_CACHED = 50;
@@ -51,9 +56,7 @@ function show(el: HTMLElement, outcome: Outcome): void {
 }
 
 /** Diagram colors from the current design tokens, so diagrams follow the light and dark themes. */
-function themeVariables(): Record<string, string> {
-  const style = getComputedStyle(document.documentElement);
-  const token = (name: string) => style.getPropertyValue(name).trim();
+function themeVariables(token: TokenReader): Record<string, string> {
   const vars: Record<string, string> = {
     background: token('--paper'),
     primaryColor: token('--paper-raised'),
@@ -68,14 +71,19 @@ function themeVariables(): Record<string, string> {
   return Object.fromEntries(Object.entries(vars).filter(([, value]) => value !== ''));
 }
 
-function configure(api: MermaidApi, theme: Theme): void {
+function configure(api: MermaidApi, theme: Theme, tokens: TokenReader): void {
   if (configuredTheme === theme) return;
-  api.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, theme: 'base', themeVariables: themeVariables() });
+  api.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, theme: 'base', themeVariables: themeVariables(tokens) });
   configuredTheme = theme;
 }
 
 /** Fill every `.md-mermaid` placeholder under `root`. Cached results are placed synchronously. */
-export function renderDiagrams(root: HTMLElement, theme: Theme, load: () => Promise<MermaidApi> = loadMermaid): Promise<void> {
+export function renderDiagrams(
+  root: HTMLElement,
+  theme: Theme,
+  load: () => Promise<MermaidApi> = loadMermaid,
+  tokens: TokenReader = documentTokens,
+): Promise<void> {
   const pending: Array<{ el: HTMLElement; raw: string | null; source: string }> = [];
   for (const el of root.querySelectorAll<HTMLElement>('.md-mermaid')) {
     const source = readDiagramSource(el);
@@ -101,7 +109,7 @@ export function renderDiagrams(root: HTMLElement, theme: Theme, load: () => Prom
       for (const { el } of pending) if (el.isConnected) show(el, { message: 'Couldn’t load the diagram renderer.' });
       return;
     }
-    configure(api, theme);
+    configure(api, theme, tokens);
     for (const { el, raw, source } of pending) {
       if (!current(el, raw)) continue;
       const key = cacheKey(theme, source);
