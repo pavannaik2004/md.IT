@@ -31,6 +31,7 @@ Recorded in `decisions.md`:
 - **P-039** Import accepts any zip of Markdown and images, always creates a new project, all or nothing, with limits.
 - **P-040** Outline and statistics come from markdown-it tokens; headings carry `data-line`.
 - **P-041** `createRenderContext` moves to `paths/`.
+- **P-042** Zips are written and read with fflate (sync API) instead of the PRD's JSZip.
 
 ## 3. Module layout (changes only)
 
@@ -102,11 +103,11 @@ Both tabs analyze `draft.previewSource`, which is already debounced to 150 ms.
 - **Content results** (documents whose content matches): `{ kind: 'content', id, name, path, count, snippets }`. Each document gets up to 3 snippets, one per matching line, each `{ line (0-based), from (offset in content), text, ranges }`: the line cut to 40 characters before the first match and 80 after, with "…" where it was cut.
 - Name results come first, then content results by match count (desc), then path. At most 100 results in total.
 
-**UI:** at the top of the tree sidebar, an `Input` with the `search` icon, placeholder "Search project", accessible name "Search project", and the shortcut hint `Ctrl Shift F` (`⌘ Shift F` on Mac). Ctrl/Cmd+Shift+F focuses it from anywhere in the workspace, and Escape clears it and returns focus. While the trimmed query is non-empty, the results replace the tree. Results are computed 120 ms after the last keystroke, over the same live queries the tree uses. Saved content only; the open document is saved within 1 s.
+**UI:** at the top of the tree sidebar, an `Input` with the `search` icon, placeholder "Search project", accessible name "Search project", and the shortcut hint `Ctrl Shift F` (`⌘ Shift F` on Mac). Ctrl/Cmd+Shift+F focuses it from anywhere in the workspace, and Escape clears it (focus stays in the field). The tree stays mounted but hidden while searching, so its open folders survive a search. While the trimmed query is non-empty, the results replace the tree. Results are computed 120 ms after the last keystroke, over the same live queries the tree uses. Saved content only; the open document is saved within 1 s.
 
 - The header reads "N results" or "No matches for “query”".
 - Result rows use the tree row style. A content result shows the document name and path, then its snippets, each with "Line N". Matches are wrapped in `<mark class="md-mark">` (`marker` background, the design system's only warm hue).
-- Clicking a document or a snippet opens that document. For a snippet, the editor selects the match: Workspace keeps a pending reveal `{ docId, from, to }` and applies it with `editor.select(from, to)` once that document's editor is mounted.
+- Clicking a document or a snippet opens that document. For a snippet, the view switches from Preview to Split if needed, and the editor selects the match: Workspace keeps a pending reveal `{ docId, from, to }` and applies it with `editor.select(from, to)` once that document's editor is mounted.
 - Clicking a folder or an image clears the search and reveals the row: `FileTree` gets `revealId`, opens its ancestor folders, focuses the row and scrolls it into view.
 
 ## 8. Export of a document (`export/`)
@@ -127,7 +128,7 @@ Before a document export the Workspace calls `saveNow()` and exports the current
 ### 8.1 `buildExportHtml({ markdown, title, folderId, snapshot, rendering, mode })`
 
 1. **Images.** A first `render` with a collecting context records which stored images the document resolves. Their bytes (from the snapshot) become `data:<type>;base64,…` URIs. A second `render` uses `createRenderContext({ loaded: true, index, docFolderId: folderId, imageUrls: dataUris })`. Missing images keep their placeholder. External images keep their URL.
-2. **Diagrams.** The HTML is placed in an offscreen container attached to the document (`position: fixed; left: -10000px; width: 720px`). `renderDiagrams(container, 'light')` fills the Mermaid placeholders, and the container's `innerHTML` is read back. Diagram errors keep their inline error box.
+2. **Diagrams.** The HTML is placed in an offscreen container attached to the document (`position: fixed; left: -10000px; width: 720px`). `renderDiagrams(container, 'light', load, lightTokens(baseCss))` fills the Mermaid placeholders, and the container's `innerHTML` is read back. Diagram colours come from the light theme's token values (the first `:root` block of `tokens.css`), not from the live page, which may be dark. Diagram errors keep their inline error box.
 3. **CSS.** These files, imported with `?inline`:
    - `ui/tokens.css`, `ui/components.css`, `preview/preview.css`
    - `katex/dist/katex.min.css`, only when the document contains math
@@ -165,7 +166,7 @@ If the iframe can't load (for example, a CSP problem found during verification),
 
 **Snapshot.** `readProjectSnapshot(projectId): Promise<ProjectSnapshot | null>` reads the project, folders, documents and images with bytes in one read transaction.
 
-**Export.** `exportProjectZip(snapshot, rendering): Promise<Blob>`, with JSZip loaded by `import('jszip')` (its own chunk). The download is named `<safe project name>.zip`.
+**Export.** `exportProjectZip(snapshot, rendering): Promise<Uint8Array>`, with fflate (P-042) loaded by `import('fflate')` (its own chunk). The download is named `<safe project name>.zip`. Zip dates before 1980 are raised to 1980, the earliest a zip can store.
 
 ```
 <Project name>/
@@ -179,15 +180,15 @@ If the iframe can't load (for example, a CSP problem found during verification),
 
 Paths come from the folder tree; names are already unique among siblings (P-008). Entries use DEFLATE, and file dates are the item's `updatedAt`.
 
-**Parse.** `parseProjectZip(file: File): Promise<ProjectImport>`, where `ProjectImport = { name, description, rendering: RenderingSettings | null, folders: string[][], documents: { folder: string[], title, content }[], images: { folder: string[], name, contentType, bytes }[], skipped: { path, reason }[], renamed: { from, to }[] }`.
+**Parse.** `parseProjectZip(data: Uint8Array, fileName: string): Promise<ParsedProjectZip>`, where the store type `ProjectImportData = { name, description, folders: string[][], documents: { folder: string[], title, content }[], images: { folder: string[], name, contentType, bytes }[] }` and `ParsedProjectZip = ProjectImportData & { rendering: RenderingSettings | null, skipped: { path, reason }[], renamed: { from, to }[] }`. Errors are the store's `ValidationError`, so `userMessage` shows them as written.
 
-1. Not readable by JSZip → `ImportError("This file isn’t a zip.")`.
-2. Over 2,000 entries, or a total uncompressed size over 500 MB (read from the central directory before anything is inflated) → "This zip is too large to import (over 2,000 files or 500 MB)."
+1. Not readable as a zip → "This file isn’t a zip."
+2. Over 2,000 entries, or a total uncompressed size over 500 MB → "This zip is too large to import (over 2,000 files or 500 MB)." fflate's `unzipSync` filter sees each entry's sizes before inflating it, so skipped and oversized entries are never read.
 3. **Paths.** `\` becomes `/`. Entries with an empty, `.` or `..` segment, or an absolute path, are skipped ("Unsafe path"). `__MACOSX/` entries, names starting with `.`, and `Thumbs.db` are ignored silently.
 4. If every remaining entry shares one top folder, it is removed.
 5. **Manifest.** If a root `mdit.json` has `format: "mdit-project"`, its `name`, `description` and `rendering` (through `clampRendering`) are used. Without it, the name is the zip file name minus `.zip`.
 6. **Documents.** `.md` and `.markdown` files (case-insensitive) become documents, decoded as UTF-8 with the BOM removed; `.markdown` is renamed to `.md`.
-7. **Images.** Files with an image extension go through `checkImageFile` (skipped as "Larger than 5 MB" or "Image type not supported"); the type comes from the extension.
+7. **Images.** Files with a supported image extension (PNG, JPEG, GIF, WebP, SVG) are images, typed by their extension; those over 5 MB are skipped as "Larger than 5 MB".
 8. **Everything else** is skipped as "Not a Markdown document or image".
 9. **Folders.** They come from the paths of kept entries and from directory entries, so empty folders are kept.
 10. **Names.** Each name goes through the store's naming rules. A case-insensitive clash between siblings is renamed with `nextAvailableName` and listed in `renamed`.
@@ -226,7 +227,7 @@ Paths come from the folder tree; names are already unique among siblings (P-008)
 ## 12. Performance
 
 - `analyze` runs on the debounced preview source. Search is debounced 120 ms and capped at 100 results.
-- JSZip loads only on zip export or import. Mermaid stays lazy and loads for export only when the document has diagrams.
+- fflate loads only on zip export or import. Mermaid stays lazy and loads for export only when the document has diagrams.
 - HTML exports embed only the font subsets the document uses, and KaTeX fonts only when there is math.
 
 ## 13. Testing
