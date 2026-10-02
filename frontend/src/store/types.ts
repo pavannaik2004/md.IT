@@ -32,13 +32,21 @@ export interface MdDocument {
   updatedAt: number;
 }
 
+export type ImageType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp' | 'image/svg+xml';
+
+/** Image metadata. The bytes live in the separate imageData table (see getImageBytes). */
 export interface ImageAsset {
   id: string;
   projectId: string;
-  path: string;
-  contentType: string;
-  bytes: Blob;
+  folderId: string | null;
+  /** File name including its extension, e.g. "diagram.png". */
+  name: string;
+  contentType: ImageType;
+  size: number;
+  /** Hex SHA-256 of the bytes; used for de-duplication from Phase 5. */
   sha256: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface Setting {

@@ -1,8 +1,21 @@
-import { Editor } from '../editor';
-import { EmptyState, Prose } from '../ui';
+import type { Ref } from 'react';
+import { Editor, type EditorHandle } from '../editor';
+import { Preview, type Theme } from '../preview';
+import { EmptyState } from '../ui';
 import type { DocumentDraft } from './useDocumentDraft';
 
-export function DocumentArea({ docId, draft, html }: { docId: string | undefined; draft: DocumentDraft; html: string }) {
+export interface DocumentAreaProps {
+  docId: string | undefined;
+  draft: DocumentDraft;
+  html: string;
+  theme: Theme;
+  editorRef: Ref<EditorHandle>;
+  onImageFiles: (files: File[], at: number | null) => void;
+  onOpenDocument: (docId: string) => void;
+  onNotice: (message: string) => void;
+}
+
+export function DocumentArea({ docId, draft, html, theme, editorRef, onImageFiles, onOpenDocument, onNotice }: DocumentAreaProps) {
   if (draft.status === 'none') {
     return (
       <div className="ws-empty">
@@ -25,10 +38,17 @@ export function DocumentArea({ docId, draft, html }: { docId: string | undefined
   return (
     <>
       <section className="ws-editor" aria-label="Editor">
-        <Editor key={docId} initialContent={draft.initialContent} onChange={draft.onChange} onSave={draft.saveNow} />
+        <Editor
+          ref={editorRef}
+          key={docId}
+          initialContent={draft.initialContent}
+          onChange={draft.onChange}
+          onSave={draft.saveNow}
+          onImageFiles={onImageFiles}
+        />
       </section>
       <section className="ws-preview" aria-label="Preview">
-        <Prose html={html} />
+        <Preview html={html} theme={theme} onOpenDocument={onOpenDocument} onNotice={onNotice} />
       </section>
     </>
   );

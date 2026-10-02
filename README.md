@@ -28,4 +28,6 @@ docker run --rm -p 8080:80 mdit-frontend   # http://localhost:8080
 
 ## Status
 
-Phase 1 (local editor) complete: projects, folders and documents stored in this browser; CodeMirror editor; live preview; split/editor/preview modes; autosave. See `context.md` for progress.
+Phase 1 (local editor) complete: projects, folders and documents stored in this browser; CodeMirror editor; live preview; split/editor/preview modes; autosave.
+
+Phase 2 (technical rendering) complete: Mermaid diagrams, KaTeX math, highlighted code blocks with a copy button, and images stored in the project and shown in the tree (drop, paste or Insert image; `![alt](path){width=… align=…}`). See `context.md` for progress.

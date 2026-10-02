@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback } from 'react';
 import { listDocuments } from './documents';
 import { listFolders } from './folders';
+import { listImages } from './images';
 import { getProject, listProjectSummaries } from './projects';
 import { getSetting, setSetting } from './settings';
 
@@ -20,6 +21,11 @@ export function useFolders(projectId: string) {
 
 export function useDocuments(projectId: string) {
   return useLiveQuery(() => listDocuments(projectId), [projectId]);
+}
+
+/** Image metadata only; bytes are read with getImageBytes. */
+export function useImages(projectId: string) {
+  return useLiveQuery(() => listImages(projectId), [projectId]);
 }
 
 /** Pass primitive fallbacks only; the fallback is not a dependency of the query. */

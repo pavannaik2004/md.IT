@@ -12,11 +12,21 @@ export interface DocumentRow extends Omit<MdDocument, 'folderId'> {
   folderId: string;
 }
 
+export interface ImageRow extends Omit<ImageAsset, 'folderId'> {
+  folderId: string;
+}
+
+export interface ImageDataRow {
+  id: string;
+  bytes: ArrayBuffer;
+}
+
 class MdItDatabase extends Dexie {
   projects!: EntityTable<Project, 'id'>;
   folders!: EntityTable<FolderRow, 'id'>;
   documents!: EntityTable<DocumentRow, 'id'>;
-  images!: EntityTable<ImageAsset, 'id'>;
+  images!: EntityTable<ImageRow, 'id'>;
+  imageData!: EntityTable<ImageDataRow, 'id'>;
   settings!: EntityTable<Setting, 'key'>;
 
   constructor() {
@@ -28,6 +38,10 @@ class MdItDatabase extends Dexie {
       images: 'id, projectId, [projectId+path]',
       settings: 'key',
     });
+    // v2: images are tree items (folderId + name) and their bytes move to imageData. v1 never stored an image.
+    this.version(2)
+      .stores({ images: 'id, projectId, [projectId+folderId]', imageData: 'id' })
+      .upgrade((tx) => tx.table('images').clear());
   }
 }
 
@@ -38,6 +52,7 @@ export const toKey = (id: string | null): string => id ?? ROOT;
 export const fromKey = (key: string): string | null => (key === ROOT ? null : key);
 export const toFolder = (row: FolderRow): Folder => ({ ...row, parentFolderId: fromKey(row.parentFolderId) });
 export const toDocument = (row: DocumentRow): MdDocument => ({ ...row, folderId: fromKey(row.folderId) });
+export const toImage = (row: ImageRow): ImageAsset => ({ ...row, folderId: fromKey(row.folderId) });
 
 /** Test helper: empty every table. */
 export async function clearDatabase(): Promise<void> {

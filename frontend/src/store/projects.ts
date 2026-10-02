@@ -45,11 +45,13 @@ export async function setProjectDescription(id: string, text: string): Promise<P
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  await db.transaction('rw', [db.projects, db.folders, db.documents, db.images], async () => {
+  await db.transaction('rw', [db.projects, db.folders, db.documents, db.images, db.imageData], async () => {
     await requireProject(id);
     await db.documents.where('projectId').equals(id).delete();
     await db.folders.where('projectId').equals(id).delete();
-    await db.images.where('projectId').equals(id).delete();
+    const imageIds = await db.images.where('projectId').equals(id).primaryKeys();
+    await db.images.bulkDelete(imageIds);
+    await db.imageData.bulkDelete(imageIds);
     await db.projects.delete(id);
   });
 }

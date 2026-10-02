@@ -1,11 +1,13 @@
-import { useEffect, useState, type DragEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type FocusEvent, type MouseEvent } from 'react';
 import { ConfirmDialog } from '../dialogs';
 import {
-  ancestorFolderIds, createDocument, createFolder, deleteDocument, deleteFolder, duplicateDocument, moveDocument, moveFolder,
-  renameDocument, renameFolder, useDocuments, useFolders, userMessage,
+  addImageFiles, ancestorFolderIds, createDocument, createFolder, deleteDocument, deleteFolder, deleteImage, duplicateDocument,
+  moveDocument, moveFolder, moveImage, renameDocument, renameFolder, renameImage, useDocuments, useFolders, useImages, userMessage,
+  type ImageAsset,
 } from '../store';
 import { Button, Callout, EmptyState, IconButton, MenuButton, TreeItem, cx, type MenuItem } from '../ui';
 import { buildTree, canMoveTo, flattenVisible, folderContents, isInsideFolder, type TreeNode } from './buildTree';
+import { ImageThumb } from './ImageThumb';
 import { deleteMessage } from './messages';
 import { MoveDialog } from './MoveDialog';
 import { RenameField } from './RenameField';
@@ -17,25 +19,40 @@ export interface FileTreeProps {
   onOpen: (docId: string) => void;
   /** Called after the open document was deleted (directly or with its folder). */
   onActiveDeleted: () => void;
+  /** Insert a reference to this image into the open document; omit when no document is open. */
+  onInsertImage?: (image: ImageAsset) => void;
+  /** Object URLs by image id, for hover thumbnails. */
+  imageUrls?: ReadonlyMap<string, string>;
 }
 
 type TreeDialog = { kind: 'move'; node: TreeNode } | { kind: 'delete'; node: TreeNode } | null;
 /** undefined = no drop target; null = project root. */
 type DropTarget = string | null | undefined;
 
+const DELETE_LABEL = { folder: 'Delete folder', file: 'Delete document', image: 'Delete image' } as const;
+const THUMB_DELAY = 400;
+
 function withAll(set: ReadonlySet<string>, ids: readonly string[]): ReadonlySet<string> {
   return ids.every((id) => set.has(id)) ? set : new Set([...set, ...ids]);
 }
 
-export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted }: FileTreeProps) {
+/** Files dragged in from the computer (not a row being moved). */
+function hasFiles(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer?.types ?? []).includes('Files');
+}
+
+export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted, onInsertImage, imageUrls }: FileTreeProps) {
   const folders = useFolders(projectId);
   const documents = useDocuments(projectId);
+  const images = useImages(projectId);
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<TreeDialog>(null);
   const [dragging, setDragging] = useState<TreeNode | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [thumb, setThumb] = useState<{ id: string; rect: DOMRect } | null>(null);
+  const thumbTimer = useRef<number | undefined>(undefined);
 
   const openFolders = (ids: readonly string[]) => setOpen((prev) => withAll(prev, ids));
 
@@ -46,9 +63,11 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted }: Fi
     if (doc) setOpen((prev) => withAll(prev, ancestorFolderIds(folders, doc.folderId)));
   }, [activeDocId, folders, documents]);
 
-  if (!folders || !documents) return null;
+  useEffect(() => () => window.clearTimeout(thumbTimer.current), []);
 
-  const rows = flattenVisible(buildTree(folders, documents), open);
+  if (!folders || !documents || !images) return null;
+
+  const rows = flattenVisible(buildTree(folders, documents, images), open);
 
   const run = async (action: () => Promise<unknown>) => {
     setError(null);
@@ -83,34 +102,66 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted }: Fi
     });
 
   const move = (node: TreeNode, targetId: string | null) =>
-    node.kind === 'folder' ? moveFolder(node.id, targetId) : moveDocument(node.id, targetId);
+    node.kind === 'folder' ? moveFolder(node.id, targetId) : node.kind === 'image' ? moveImage(node.id, targetId) : moveDocument(node.id, targetId);
+
+  const rename = (node: TreeNode, value: string) =>
+    node.kind === 'folder' ? renameFolder(node.id, value) : node.kind === 'image' ? renameImage(node.id, value) : renameDocument(node.id, value);
 
   const remove = async (node: TreeNode) => {
     const active = documents.find((d) => d.id === activeDocId);
-    const activeGone = node.kind === 'file' ? node.id === activeDocId : isInsideFolder(active, node.id, folders);
+    const activeGone = node.kind === 'file' ? node.id === activeDocId : node.kind === 'folder' && isInsideFolder(active, node.id, folders);
     if (node.kind === 'folder') await deleteFolder(node.id);
+    else if (node.kind === 'image') await deleteImage(node.id);
     else await deleteDocument(node.id);
     if (activeGone) onActiveDeleted();
   };
 
-  const menuFor = (node: TreeNode): MenuItem[] =>
-    node.kind === 'folder'
-      ? [
-          { label: 'New document', icon: 'file', onSelect: () => void newDocument(node.id) },
-          { label: 'New folder', icon: 'folder', onSelect: () => void newFolder(node.id) },
-          'separator',
-          { label: 'Rename', icon: 'pencil', onSelect: () => setRenamingId(node.id) },
-          { label: 'Move to…', onSelect: () => setDialog({ kind: 'move', node }) },
-          'separator',
-          { label: 'Delete', icon: 'trash', danger: true, onSelect: () => setDialog({ kind: 'delete', node }) },
-        ]
-      : [
-          { label: 'Rename', icon: 'pencil', onSelect: () => setRenamingId(node.id) },
-          { label: 'Duplicate', icon: 'copy', onSelect: () => void run(async () => onOpen((await duplicateDocument(node.id)).id)) },
-          { label: 'Move to…', onSelect: () => setDialog({ kind: 'move', node }) },
-          'separator',
-          { label: 'Delete', icon: 'trash', danger: true, onSelect: () => setDialog({ kind: 'delete', node }) },
-        ];
+  const addFiles = (folderId: string | null, files: File[]) =>
+    run(async () => {
+      const { errors } = await addImageFiles(projectId, folderId, files);
+      if (folderId) openFolders([folderId]);
+      if (errors.length > 0) setError(errors.join(' '));
+    });
+
+  const showThumbLater = (id: string) => (event: MouseEvent<HTMLDivElement> | FocusEvent<HTMLDivElement>) => {
+    window.clearTimeout(thumbTimer.current);
+    const rect = event.currentTarget.getBoundingClientRect();
+    thumbTimer.current = window.setTimeout(() => setThumb({ id, rect }), THUMB_DELAY);
+  };
+  const hideThumb = () => {
+    window.clearTimeout(thumbTimer.current);
+    setThumb(null);
+  };
+
+  const menuFor = (node: TreeNode): MenuItem[] => {
+    const tail: MenuItem[] = [
+      { label: 'Move to…', onSelect: () => setDialog({ kind: 'move', node }) },
+      'separator',
+      { label: 'Delete', icon: 'trash', danger: true, onSelect: () => setDialog({ kind: 'delete', node }) },
+    ];
+    const renameItem: MenuItem = { label: 'Rename', icon: 'pencil', onSelect: () => setRenamingId(node.id) };
+    if (node.kind === 'folder') {
+      return [
+        { label: 'New document', icon: 'file', onSelect: () => void newDocument(node.id) },
+        { label: 'New folder', icon: 'folder', onSelect: () => void newFolder(node.id) },
+        'separator',
+        renameItem,
+        ...tail,
+      ];
+    }
+    if (node.kind === 'image') {
+      const insert = () => {
+        const image = images.find((i) => i.id === node.id);
+        if (image) onInsertImage?.(image);
+      };
+      return [{ label: 'Insert in document', icon: 'image', disabled: !onInsertImage, onSelect: insert }, 'separator', renameItem, ...tail];
+    }
+    return [
+      renameItem,
+      { label: 'Duplicate', icon: 'copy', onSelect: () => void run(async () => onOpen((await duplicateDocument(node.id)).id)) },
+      ...tail,
+    ];
+  };
 
   const canDrop = (targetId: string | null) => dragging !== null && canMoveTo(dragging, targetId, folders);
   const endDrag = () => {
@@ -118,7 +169,8 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted }: Fi
     setDropTarget(undefined);
   };
   const dragOver = (targetId: string | null) => (event: DragEvent) => {
-    if (!canDrop(targetId)) return;
+    const fromComputer = dragging === null && hasFiles(event);
+    if (!fromComputer && !canDrop(targetId)) return;
     event.preventDefault();
     event.stopPropagation();
     setDropTarget(targetId);
@@ -128,8 +180,16 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted }: Fi
     event.stopPropagation();
     const node = dragging;
     endDrag();
-    if (node && canMoveTo(node, targetId, folders)) void run(() => move(node, targetId));
+    if (node) {
+      if (canMoveTo(node, targetId, folders)) void run(() => move(node, targetId));
+      return;
+    }
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    if (files.length > 0) void addFiles(targetId, files);
   };
+
+  const thumbImage = thumb ? images.find((i) => i.id === thumb.id) : undefined;
+  const thumbUrl = thumb ? imageUrls?.get(thumb.id) : undefined;
 
   return (
     <div className="tree">
@@ -178,8 +238,7 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted }: Fi
                 depth={node.depth}
                 onCancel={() => setRenamingId(null)}
                 onCommit={async (value) => {
-                  if (node.kind === 'folder') await renameFolder(node.id, value);
-                  else await renameDocument(node.id, value);
+                  await rename(node, value);
                   setRenamingId(null);
                 }}
               />
@@ -192,14 +251,18 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted }: Fi
                 open={node.kind === 'folder' ? open.has(node.id) : undefined}
                 active={node.kind === 'file' && node.id === activeDocId}
                 dropTarget={node.kind === 'folder' && dropTarget === node.id}
-                onClick={() => (node.kind === 'folder' ? toggleFolder(node.id) : onOpen(node.id))}
+                onClick={node.kind === 'folder' ? () => toggleFolder(node.id) : node.kind === 'file' ? () => onOpen(node.id) : undefined}
+                {...(node.kind === 'image'
+                  ? { onMouseEnter: showThumbLater(node.id), onMouseLeave: hideThumb, onFocus: showThumbLater(node.id), onBlur: hideThumb }
+                  : {})}
                 draggable
                 onDragStart={(event) => {
+                  hideThumb();
                   event.dataTransfer?.setData('text/plain', node.name);
                   setDragging(node);
                 }}
                 onDragEnd={endDrag}
-                // Dropping onto a document means "into the folder that holds it".
+                // Dropping onto a document or image means "into the folder that holds it".
                 onDragOver={dragOver(node.kind === 'folder' ? node.id : node.parentId)}
                 onDrop={drop(node.kind === 'folder' ? node.id : node.parentId)}
                 trailing={<MenuButton size="sm" label={`Actions for ${node.name}`} items={menuFor(node)} />}
@@ -214,13 +277,14 @@ export function FileTree({ projectId, activeDocId, onOpen, onActiveDeleted }: Fi
       )}
       {dialog?.kind === 'delete' && (
         <ConfirmDialog
-          title={dialog.node.kind === 'folder' ? 'Delete folder' : 'Delete document'}
-          message={deleteMessage(dialog.node, dialog.node.kind === 'folder' ? folderContents(dialog.node.id, folders, documents) : undefined)}
-          confirmLabel={dialog.node.kind === 'folder' ? 'Delete folder' : 'Delete document'}
+          title={DELETE_LABEL[dialog.node.kind]}
+          message={deleteMessage(dialog.node, dialog.node.kind === 'folder' ? folderContents(dialog.node.id, folders, documents, images) : undefined)}
+          confirmLabel={DELETE_LABEL[dialog.node.kind]}
           onClose={() => setDialog(null)}
           onConfirm={() => remove(dialog.node)}
         />
       )}
+      {thumb && thumbImage && thumbUrl && <ImageThumb anchor={thumb.rect} url={thumbUrl} size={thumbImage.size} />}
     </div>
   );
 }

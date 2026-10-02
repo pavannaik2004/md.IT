@@ -1,4 +1,4 @@
-import { db, now, type DocumentRow, type FolderRow } from './db';
+import { db, now, type DocumentRow, type FolderRow, type ImageRow } from './db';
 import { InvalidMoveError, NameConflictError, NotFoundError } from './errors';
 import { nameKey } from './names';
 import type { Project } from './types';
@@ -27,19 +27,30 @@ export async function requireDocument(id: string): Promise<DocumentRow> {
   return document;
 }
 
+export async function requireImage(id: string): Promise<ImageRow> {
+  const image = await db.images.get(id);
+  if (!image) throw new NotFoundError('This image no longer exists.');
+  return image;
+}
+
+/** Every table a tree change may read or write: sibling names span folders, documents and images. */
+export const hierarchyTables = () => [db.projects, db.folders, db.documents, db.images, db.imageData];
+
 export async function touchProject(projectId: string, at: number = now()): Promise<void> {
   await db.projects.update(projectId, { updatedAt: at });
 }
 
-/** Names of every folder and document directly under `parentKey`, optionally excluding one item. */
+/** Names of every folder, document and image directly under `parentKey`, optionally excluding one item. */
 export async function siblingNames(projectId: string, parentKey: string, excludeId?: string): Promise<string[]> {
-  const [folders, documents] = await Promise.all([
+  const [folders, documents, images] = await Promise.all([
     db.folders.where('[projectId+parentFolderId]').equals([projectId, parentKey]).toArray(),
     db.documents.where('[projectId+folderId]').equals([projectId, parentKey]).toArray(),
+    db.images.where('[projectId+folderId]').equals([projectId, parentKey]).toArray(),
   ]);
   return [
     ...folders.filter((f) => f.id !== excludeId).map((f) => f.name),
     ...documents.filter((d) => d.id !== excludeId).map((d) => d.title),
+    ...images.filter((i) => i.id !== excludeId).map((i) => i.name),
   ];
 }
 

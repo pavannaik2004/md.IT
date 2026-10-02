@@ -1,10 +1,8 @@
 import { db, now, toDocument, toKey, type DocumentRow } from './db';
-import { assertNameFree, requireDocument, requireFolderIn, requireProject, siblingNames, touchProject } from './guards';
+import { assertNameFree, hierarchyTables, requireDocument, requireFolderIn, requireProject, siblingNames, touchProject } from './guards';
 import { newId } from './ids';
 import { nextAvailableName, normalizeName, stripMdExtension, withMdExtension } from './names';
 import type { MdDocument } from './types';
-
-const tables = () => [db.projects, db.folders, db.documents];
 
 export async function listDocuments(projectId: string): Promise<MdDocument[]> {
   const rows = await db.documents.where('projectId').equals(projectId).toArray();
@@ -18,7 +16,7 @@ export async function getDocument(id: string): Promise<MdDocument | null> {
 
 export async function createDocument(projectId: string, folderId: string | null, title?: string): Promise<MdDocument> {
   const requested = title === undefined ? undefined : withMdExtension(normalizeName(title));
-  return db.transaction('rw', tables(), async () => {
+  return db.transaction('rw', hierarchyTables(), async () => {
     await requireProject(projectId);
     if (folderId !== null) await requireFolderIn(projectId, folderId);
     const parentKey = toKey(folderId);
@@ -37,7 +35,7 @@ export async function createDocument(projectId: string, folderId: string | null,
 
 export async function renameDocument(id: string, title: string): Promise<MdDocument> {
   const clean = withMdExtension(normalizeName(title));
-  return db.transaction('rw', tables(), async () => {
+  return db.transaction('rw', hierarchyTables(), async () => {
     const doc = await requireDocument(id);
     assertNameFree(clean, await siblingNames(doc.projectId, doc.folderId, id));
     const updated: DocumentRow = { ...doc, title: clean, updatedAt: now() };
@@ -48,7 +46,7 @@ export async function renameDocument(id: string, title: string): Promise<MdDocum
 }
 
 export async function duplicateDocument(id: string): Promise<MdDocument> {
-  return db.transaction('rw', tables(), async () => {
+  return db.transaction('rw', hierarchyTables(), async () => {
     const doc = await requireDocument(id);
     const taken = await siblingNames(doc.projectId, doc.folderId);
     const at = now();
@@ -69,7 +67,7 @@ export async function duplicateDocument(id: string): Promise<MdDocument> {
 }
 
 export async function moveDocument(id: string, folderId: string | null): Promise<MdDocument> {
-  return db.transaction('rw', tables(), async () => {
+  return db.transaction('rw', hierarchyTables(), async () => {
     const doc = await requireDocument(id);
     if (folderId !== null) await requireFolderIn(doc.projectId, folderId);
     const parentKey = toKey(folderId);
@@ -82,7 +80,7 @@ export async function moveDocument(id: string, folderId: string | null): Promise
 }
 
 export async function deleteDocument(id: string): Promise<void> {
-  await db.transaction('rw', tables(), async () => {
+  await db.transaction('rw', hierarchyTables(), async () => {
     const doc = await requireDocument(id);
     await db.documents.delete(id);
     await touchProject(doc.projectId);

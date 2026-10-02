@@ -4,14 +4,11 @@ Single source of truth for project progress. **Read before starting any work; up
 
 ## Current state
 
-- **Phase:** 1 — Local editor (PRD §13)
-- **Branch:** `phase-1-local-editor`
-- **Stage:** executing plan inline (user chose Native); ledger at `.superpowers/sdd/2026-09-26-phase-1-local-editor/progress.md` (git-ignored)
-- **Spec:** `docs/superpowers/specs/2026-09-26-phase-1-local-editor-design.md`
-- **Plan:** `docs/superpowers/plans/2026-09-26-phase-1-local-editor.md` (14 tasks)
-- **Done:** Tasks 1–14
-- **Next step:** push branch + open PR (needs `gh auth login`); user browser check
-- **Blockers to clear before Task 14:** `gh` token for `pavannaik2004` invalid (needs `gh auth login`). Docker Desktop now starts fine.
+- **Phase:** 2 built on `phase-2-technical-rendering` — PR pending
+- **Branch:** `phase-2-technical-rendering` (all 11 plan tasks and the final review done; 300 tests)
+- **Next step:** user picks merge locally / push and open the PR / keep the branch
+- **Deferred minors from Phase 2 review:** editor drop of images mixed with other files silently ignores the others; an async image insert can land in another document after a switch, and the drop position isn’t clamped; every autosave rebuilds the path index and re-renders; a link to a folder says “isn’t in this project” instead of “Only links to documents…”; an image whose bytes are missing shows “Loading image…” forever; a raw-HTML `data-doc-id` isn’t escaped in the route or checked against the project; the hover thumbnail isn’t clamped to the viewport or moved on tree scroll
+- **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
 
 ## Key references
 
@@ -23,8 +20,8 @@ Single source of truth for project progress. **Read before starting any work; up
 
 | Phase | Status |
 | --- | --- |
-| 1. Local editor | In progress — implementing (Task 14/14 done) |
-| 2. Technical rendering | Not started |
+| 1. Local editor | Done — merged 2026-09-26 (PR #1) |
+| 2. Technical rendering | Built — PR pending |
 | 3. Customization and export | Not started |
 | 4. Backend foundation | Not started |
 | 5. Login and versions | Not started |
@@ -54,3 +51,21 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-26 — Task 13: frontend container (node:22-alpine build → nginx:1.28-alpine), SPA fallback, CSP + security headers on every location, immutable asset caching. Verified: image builds; / 200 with CSP/no-cache; deep link 200; hashed asset immutable; missing asset 404; fonts served as font/woff2; built HTML has no inline scripts or eval.
 - 2026-09-26 — Task 14: CI workflow (.github/workflows/ci.yml: lint, typecheck, test, build, docker build on PRs touching frontend/), README run instructions. Final check from clean `npm ci`: lint ✓, typecheck ✓, 144/144 tests ✓, build ✓; no Dexie import outside src/store/. Spec acceptance: 1 ✓, 2 ✓ (container serves app), 3 covered by component tests — manual browser check pending with user, 4 ✓.
 - 2026-09-26 — Task 14: whole-branch review (fresh reviewer): 1 Critical, 3 Important (+1 re-graded), 8 Minor. Fixed with tests first: reopening a document after Back reused stale content and could overwrite saved text; `<style>` blocks now stripped; Ctrl+S retries a failed save and leaving the page asks while changes are unconfirmed; IDs work over plain HTTP (`newId`); dropping onto a document moves into its folder. 152 tests. Decisions P-020 (extended), P-021, P-022.
+- 2026-09-26 — Pushed `main` and `phase-1-local-editor`; user opened and merged PR #1 (merge commit 613fe27). CI (`frontend` job) passed in 57 s on first run. Deleted local phase-1 branch; created `phase-2-technical-rendering` from `main`.
+- 2026-09-26 — Browser check done: user tried the container at localhost:8080 and confirmed it works. Also verified with headless Edge (Playwright) against both the container and the dev server: live preview renders headings/bold/lists, content persists across reload, no console errors.
+- 2026-09-26 — Phase 2 brainstorming: images as tree files, no-navigate image rows with Insert in document, relative .md links open in workspace, two-stage rendering. Probed fake-indexeddb: Blob does not round-trip under jsdom, ArrayBuffer does. Wrote Phase 2 design spec. Decisions P-023…P-027.
+- 2026-09-26 — User approved the Phase 2 spec. Wrote the 11-task implementation plan. Settled while planning (spec updated): design-system class `md-img-missing`, a loading state for images whose bytes haven't loaded, notices owned by the Workspace, links to non-documents marked unsupported, editor `insertBlock` (images always on their own lines), no fallback folder (nothing else can be named `images`). Probed jsdom: `File.arrayBuffer` works; `execCommand`, `matchMedia`, `clipboard` are absent.
+- 2026-09-26 — Task 1: image storage — schema v2 (images metadata + imageData ArrayBuffer), image rules, add/rename/move/delete, shared sibling namespace, cascades, findOrCreateFolder, useImages (src/store/*; 169 tests).
+- 2026-09-26 — Task 2: paths module — resolve relative hrefs (., .., /, case-insensitive, percent-decoding) and build relative hrefs (src/paths/; 177 tests).
+- 2026-09-26 — Task 3: renderer context, link rule (data-doc-id / data-missing), image rule ({width align}, missing and loading placeholders), blob: allowed by DOMPurify (src/renderer/; 200 tests).
+- 2026-09-26 — Task 4: CodeBlock markup (copy button, language label) with highlight.js for the nine PRD languages; --syntax-* tokens; mermaid placeholder with URI-encoded source (DOMPurify drops attribute values containing -->) (src/renderer/, ui/tokens.css, ui/components.css; 220 tests).
+- 2026-09-26 — Task 5: KaTeX math — in-house $ / $$ rules, inline and block errors, output spliced in after sanitizing at nonce placeholders (src/renderer/math.ts; 235 tests).
+- 2026-09-26 — Task 6: preview wrapper (copy buttons with plain-HTTP fallback, relative links kept in the app), workspace Notice (src/preview/, app/Notice.tsx, DocumentArea, Workspace; 252 tests).
+- 2026-09-27 — Task 7: lazy Mermaid (strict, cached per theme+source, stale results dropped, load failure notice), useResolvedTheme, theme passed to the preview (src/preview/mermaid.ts, app/theme.ts; 263 tests). Mermaid is its own chunk; main bundle 1.28 MB (434 kB gzip).
+- 2026-09-27 — Task 8: editor insertBlock handle (adds only missing blank lines, one undo step) and image drop/paste hand-off (src/editor/; 269 tests).
+- 2026-09-27 — Task 9: tree image rows — Insert in document, rename/move/delete, drag moves, hover thumbnail, image files dropped from the computer, folder-delete counts images (src/tree/; 283 tests).
+- 2026-09-27 — Task 10: workspace wiring — object URLs per image, render context (stored images, loading state, document links), Insert image button, editor drops/pastes and tree inserts land in images/ next to the document (src/app/; 297 tests, stable over 3 runs).
+- 2026-09-27 — Task 11: verification. Clean `npm ci`: lint ✓, typecheck ✓, 297/297 tests ✓, build ✓. Main bundle 1,296 kB (440 kB gzip; KaTeX + highlight.js), Mermaid in lazy chunks (mermaid.core 94 kB + diagram chunks), none in the main bundle. Container: image builds, / 200. Headless Edge against the container: 4 diagrams (flowchart, sequence, class, ER) + 1 inline diagram error; 2 KaTeX + 1 math error; 9/9 languages highlighted; copy button copies; uploaded image width=50% align=right; missing-image placeholder; survives reload; renaming the image shows the placeholder; Mermaid not requested for a plain document; no console or CSP errors. Decisions P-028, P-029.
+- 2026-09-27 — Final whole-branch review (fresh reviewer): with fixes; fixed inline math swallowing a later code span and # / ? left unencoded in inserted image paths (tests first; 300 tests). Theme-colour race not reproducible in Edge (ruling). 7 minors deferred (listed under Current state).
+- 2026-10-02 — Added root `CLAUDE.md`: `context.md` is the single source of truth for progress (read before any work, log every event with its date after it), and every decision goes in `decisions.md`. (decision P-030)
+- 2026-10-02 — Gave the user a Phase 2 manual test document (in chat, not saved to the repo): code blocks in all 9 languages plus plain and unregistered ones, inline/display/invalid math and text that must stay plain, 4 Mermaid diagrams plus a broken one, stored/missing/external images, document/missing/folder/external links, and sanitizer cases. It needs an `images/diagram.png` and a `Notes.md` in the project. No code changes; 300 tests unchanged.

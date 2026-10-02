@@ -1,7 +1,8 @@
 import { act, fireEvent, render } from '@testing-library/react';
+import { createRef } from 'react';
 import { EditorView } from '@codemirror/view';
 import { describe, expect, it, vi } from 'vitest';
-import { Editor } from './Editor';
+import { Editor, type EditorHandle } from './Editor';
 
 function setup(initialContent = '# Hello') {
   const onChange = vi.fn();
@@ -47,5 +48,61 @@ describe('Editor', () => {
     const { container, unmount } = setup();
     unmount();
     expect(container.querySelector('.cm-editor')).toBeNull();
+  });
+});
+
+describe('Editor insert and images', () => {
+  const setupWithHandle = (content = 'hello') => {
+    const ref = createRef<EditorHandle>();
+    const onChange = vi.fn();
+    const onImageFiles = vi.fn();
+    const { container } = render(<Editor ref={ref} initialContent={content} onChange={onChange} onSave={() => {}} onImageFiles={onImageFiles} />);
+    return { ref, onChange, onImageFiles, content: container.querySelector<HTMLElement>('.cm-content')! };
+  };
+
+  it('inserts a block at the end before the editor has had focus, then at the cursor', () => {
+    const { ref, onChange } = setupWithHandle('# Hello');
+    act(() => ref.current!.insertBlock('![a](a.png)'));
+    expect(onChange).toHaveBeenLastCalledWith('# Hello\n\n![a](a.png)');
+    act(() => ref.current!.insertBlock('![b](b.png)'));
+    // the cursor sits after the first insert, which is the end
+    expect(onChange).toHaveBeenLastCalledWith('# Hello\n\n![a](a.png)\n\n![b](b.png)');
+  });
+
+  it('inserts at an explicit position, separated by blank lines', () => {
+    const { ref, onChange } = setupWithHandle('hello\nworld');
+    act(() => ref.current!.insertBlock('X', 0));
+    expect(onChange).toHaveBeenLastCalledWith('X\n\nhello\nworld');
+  });
+
+  it('adds only the newlines that are missing', () => {
+    const { ref, onChange } = setupWithHandle('a\n\nb');
+    act(() => ref.current!.insertBlock('X', 3)); // start of "b", right after a blank line
+    expect(onChange).toHaveBeenLastCalledWith('a\n\nX\n\nb');
+  });
+
+  it('uses the cursor once the editor has had focus', () => {
+    const { ref, onChange, content } = setupWithHandle('hello');
+    fireEvent.focus(content);
+    act(() => ref.current!.insertBlock('X'));
+    // CodeMirror starts with the cursor at 0
+    expect(onChange).toHaveBeenLastCalledWith('X\n\nhello');
+  });
+
+  it('hands dropped and pasted images to onImageFiles', () => {
+    const { onImageFiles, content } = setupWithHandle();
+    const png = new File(['x'], 'a.png', { type: 'image/png' });
+    fireEvent.drop(content, { dataTransfer: { files: [png], types: ['Files'] } });
+    expect(onImageFiles).toHaveBeenCalledTimes(1);
+    expect(onImageFiles.mock.calls[0]![0]).toEqual([png]);
+    fireEvent.paste(content, { clipboardData: { files: [png], types: ['Files'] } });
+    expect(onImageFiles).toHaveBeenCalledTimes(2);
+    expect(onImageFiles.mock.calls[1]).toEqual([[png], null]);
+  });
+
+  it('ignores files that aren’t images', () => {
+    const { onImageFiles, content } = setupWithHandle();
+    fireEvent.paste(content, { clipboardData: { files: [new File(['x'], 'notes.txt', { type: 'text/plain' })], types: ['Files'], getData: () => '' } });
+    expect(onImageFiles).not.toHaveBeenCalled();
   });
 });

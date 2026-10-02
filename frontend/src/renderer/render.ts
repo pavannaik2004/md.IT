@@ -1,30 +1,37 @@
-import DOMPurify from 'dompurify';
+import DOMPurify, { type Config } from 'dompurify';
 import MarkdownIt from 'markdown-it';
 import taskLists from 'markdown-it-task-lists';
+import type { RenderContext, RenderEnv } from './context';
+import { codeBlocks } from './code';
+import { escapeHtml } from './escape';
+import { images } from './images';
+import { links } from './links';
+import { math, spliceMath } from './math';
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: false });
 md.use(taskLists, { enabled: false });
+md.use(links);
+md.use(images);
+md.use(codeBlocks);
+md.use(math);
 
-const renderLinkOpen = md.renderer.rules.link_open ?? ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+// DOMPurify's default URI allow-list plus blob:, the object URLs of images stored in this browser.
+const ALLOWED_URI = /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|blob):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i;
 
-md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
-  const token = tokens[idx]!;
-  if (/^https?:\/\//i.test(String(token.attrGet('href') ?? ''))) {
-    token.attrSet('target', '_blank');
-    token.attrSet('rel', 'noopener noreferrer');
-  }
-  return renderLinkOpen(tokens, idx, options, env, self);
-};
+// Inline style and <style> blocks are dropped: they can smuggle url(javascript:…), and a <style> block would restyle the whole app.
+const SANITIZE: Config = { ADD_ATTR: ['target'], FORBID_ATTR: ['style'], FORBID_TAGS: ['style'], ALLOWED_URI_REGEXP: ALLOWED_URI };
 
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+function newNonce(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /** Markdown → sanitized HTML. Pure apart from DOMPurify; never throws. */
-export function render(markdown: string): string {
+export function render(markdown: string, context?: RenderContext): string {
   try {
-    // Inline style and <style> blocks are dropped: they can smuggle url(javascript:…), and a <style> block would restyle the whole app.
-    return DOMPurify.sanitize(md.render(markdown), { ADD_ATTR: ['target'], FORBID_ATTR: ['style'], FORBID_TAGS: ['style'] });
+    const env: RenderEnv = { context, nonce: newNonce(), math: [] };
+    const clean = DOMPurify.sanitize(md.render(markdown, env), SANITIZE);
+    // KaTeX output needs inline styles, which SANITIZE strips, so it goes in after sanitizing (P-025).
+    return spliceMath(clean, env);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return `<div class="md-render-error">Couldn’t render this document: ${escapeHtml(message)}</div>`;

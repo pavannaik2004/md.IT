@@ -23,11 +23,11 @@ export function nameKey(name: string): string {
   return name.toLocaleLowerCase();
 }
 
-/** "Untitled.md", then "Untitled 2.md", "Untitled 3.md", … — the first not in `taken`. */
-export function nextAvailableName(stem: string, ext: string, taken: readonly string[]): string {
+/** "Untitled.md", then "Untitled 2.md", … — the first not in `taken`. Images use "-" ("a-2.png"). */
+export function nextAvailableName(stem: string, ext: string, taken: readonly string[], separator = ' '): string {
   const used = new Set(taken.map(nameKey));
   for (let n = 1; ; n++) {
-    const candidate = n === 1 ? `${stem}${ext}` : `${stem} ${n}${ext}`;
+    const candidate = n === 1 ? `${stem}${ext}` : `${stem}${separator}${n}${ext}`;
     if (!used.has(nameKey(candidate))) return candidate;
   }
 }
