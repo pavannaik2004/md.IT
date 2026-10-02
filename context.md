@@ -4,9 +4,9 @@ Single source of truth for project progress. **Read before starting any work; up
 
 ## Current state
 
-- **Phase:** 2 built on `phase-2-technical-rendering` — PR pending
-- **Branch:** `phase-2-technical-rendering` (all 11 plan tasks and the final review done; 300 tests)
-- **Next step:** user picks merge locally / push and open the PR / keep the branch
+- **Phase:** 3 (customization and export) — spec approved, detailed plan next
+- **Branch:** `phase-3-customization-export` (from `main` at a8ca095, the PR #2 merge)
+- **Next step:** write the Phase 3 implementation plan, then build task by task
 - **Deferred minors from Phase 2 review:** editor drop of images mixed with other files silently ignores the others; an async image insert can land in another document after a switch, and the drop position isn’t clamped; every autosave rebuilds the path index and re-renders; a link to a folder says “isn’t in this project” instead of “Only links to documents…”; an image whose bytes are missing shows “Loading image…” forever; a raw-HTML `data-doc-id` isn’t escaped in the route or checked against the project; the hover thumbnail isn’t clamped to the viewport or moved on tree scroll
 - **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
 
@@ -21,8 +21,8 @@ Single source of truth for project progress. **Read before starting any work; up
 | Phase | Status |
 | --- | --- |
 | 1. Local editor | Done — merged 2026-09-26 (PR #1) |
-| 2. Technical rendering | Built — PR pending |
-| 3. Customization and export | Not started |
+| 2. Technical rendering | Done — merged 2026-10-02 (PR #2) |
+| 3. Customization and export | In progress |
 | 4. Backend foundation | Not started |
 | 5. Login and versions | Not started |
 | 6. Kubernetes locally | Not started |
@@ -69,3 +69,5 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-09-27 — Final whole-branch review (fresh reviewer): with fixes; fixed inline math swallowing a later code span and # / ? left unencoded in inserted image paths (tests first; 300 tests). Theme-colour race not reproducible in Edge (ruling). 7 minors deferred (listed under Current state).
 - 2026-10-02 — Added root `CLAUDE.md`: `context.md` is the single source of truth for progress (read before any work, log every event with its date after it), and every decision goes in `decisions.md`. (decision P-030)
 - 2026-10-02 — Gave the user a Phase 2 manual test document (in chat, not saved to the repo): code blocks in all 9 languages plus plain and unregistered ones, inline/display/invalid math and text that must stay plain, 4 Mermaid diagrams plus a broken one, stored/missing/external images, document/missing/folder/external links, and sanitizer cases. It needs an `images/diagram.png` and a `Notes.md` in the project. No code changes; 300 tests unchanged.
+- 2026-10-02 — Started Phase 3. Re-ran lint ✓, typecheck ✓, 300/300 tests ✓, then pushed `phase-2-technical-rendering` and opened PR #2 (https://github.com/pavannaik2004/md.IT/pull/2) at the user's request. User chose one cycle for all of Phase 3 (decision P-031). Brainstorming began: read PRD §5.6, §5.7, §5.9, §7, §13 and the existing settings, preview and workspace code.
+- 2026-10-02 — PR #2 merged (merge commit a8ca095, CI `frontend` green). Created `phase-3-customization-export` from it; local `main` fast-forwarded, local Phase 2 branch deleted. User asked to include the service worker and chose search-left / right panel (Outline · Stats · Settings) and PDF via the print dialog. Wrote the Phase 3 design spec (`docs/superpowers/specs/2026-10-02-phase-3-customization-export-design.md`), approved by the user. Decisions P-032…P-041.
