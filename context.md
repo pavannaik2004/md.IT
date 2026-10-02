@@ -77,3 +77,4 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-10-02 — Phase 3 Task 3: shared markdown-it instance (renderer/md.ts), headings carry data-line, analyze() for outline and statistics; escapeHtml exported (renderer/; 327 tests).
 - 2026-10-02 — Phase 3 Task 4: editor handle gains revealLine, select and getText (editor/Editor.tsx; 331 tests).
 - 2026-10-02 — Phase 3 Task 5: side panel (toolbar toggle, Outline · Stats · Settings, remembered) with outline clicks scrolling preview and editor (app/SidePanel.tsx, outline/, app/Workspace.tsx, app.css, test/setup.ts; 340 tests).
+- 2026-10-02 — Phase 3 Task 6: pure project search (names first, content by match count, ≤3 snippets, ≤100 results; query is plain text) (search/search.ts; 347 tests).
