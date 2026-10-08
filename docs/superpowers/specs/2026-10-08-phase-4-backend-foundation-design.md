@@ -1,6 +1,6 @@
 # Phase 4 — Backend foundation: design
 
-Status: draft 2026-10-08 · Branch: `phase-4-backend-foundation` · PRD: §4, §8, §9.2–9.3, §10.1, §10.4, §11, §12, §13
+Status: approved 2026-10-08, amended after planning probes (P-054) · Branch: `phase-4-backend-foundation` · PRD: §4, §8, §9.2–9.3, §10.1, §10.4, §11, §12, §13
 
 ## 1. Goal
 
@@ -40,10 +40,11 @@ gateway/default.conf         nginx: /api/ → backend, / → frontend
 mysql/init/01-test-db.sh     creates mdit_test and grants it to $MYSQL_USER
 backend/
   app/
-    main.py                  create_app(): lifespan, routers, error handlers
+    main.py                  create_app() factory (uvicorn --factory): lifespan, routers, error handlers
     config.py                Settings (pydantic-settings)
     errors.py                error shape and exception handlers
     logging.py               stdlib logging setup
+    readiness.py             ReadinessChecks and the real database, migration and blob checks
     routes/health.py         /api/health, /api/health/ready
     db/base.py               DeclarativeBase with naming convention
     db/models.py             User, Project, Document, Version, Blob
@@ -66,8 +67,8 @@ README.md                    run everything; backend commands
 
 | Service | Image | Notes |
 | --- | --- | --- |
-| `mysql` | `mysql:8.4` | `--character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci`; database `mdit`, user `mdit`; named volume `mysql-data`; `mysql/init/` mounted at `/docker-entrypoint-initdb.d` (a shell script creates `mdit_test` and grants it to `$MYSQL_USER`, so an overridden user still works); healthcheck `mysqladmin ping`; `127.0.0.1:3306:3306` |
-| `azurite` | `mcr.microsoft.com/azure-storage/azurite:3.37.0` | `azurite-blob --blobHost 0.0.0.0 --location /data`; named volume `azurite-data`; `127.0.0.1:10000:10000` |
+| `mysql` | `mysql:8.4` | `--character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci`; database `mdit`, user `mdit`; named volume `mysql-data`; `mysql/init/` mounted at `/docker-entrypoint-initdb.d` (a shell script calls the `mysql` client directly to create `mdit_test` and grant it to `$MYSQL_USER`, so it works whether the entrypoint runs it (Windows mounts look executable) or sources it); healthcheck `mysqladmin ping`; `127.0.0.1:3306:3306` |
+| `azurite` | `mcr.microsoft.com/azure-storage/azurite:3.37.0` | `azurite-blob --blobHost 0.0.0.0 --location /data --skipApiVersionCheck` (azure-storage-blob 12.31 sends API version 2026-10-06, which Azurite 3.37 rejects otherwise); named volume `azurite-data`; `127.0.0.1:10000:10000` |
 | `migrate` | built from `backend/` | command `alembic upgrade head`; `depends_on: mysql (service_healthy)`; `restart: "no"` |
 | `backend` | built from `backend/` | `depends_on: migrate (service_completed_successfully), azurite (service_started)`; healthcheck runs a Python one-liner against `http://127.0.0.1:8000/api/health` (the slim image has no curl); `127.0.0.1:8000:8000` |
 | `frontend` | built from `frontend/` (unchanged) | no published port |
@@ -86,7 +87,7 @@ Only the gateway is published on all interfaces. MySQL, Azurite and the backend 
 
 ## 5. Backend service
 
-**Versions** (checked 2026-10-08; P-048): Python 3.14 (`.python-version`, `requires-python = ">=3.14,<3.15"`); FastAPI 0.142, Uvicorn 0.54 (`uvicorn[standard]`), Pydantic 2.13, pydantic-settings 2.15, SQLAlchemy 2.0.54, PyMySQL 1.2 with `cryptography` (MySQL 8.4's default `caching_sha2_password` needs it for the first login without TLS), Alembic 1.20, azure-storage-blob 12.31. Dev group: pytest 9.1, httpx 0.28, ruff 0.16, mypy 2.4. Exact versions live in `uv.lock`.
+**Versions** (checked 2026-10-08; P-048): Python 3.14 (`.python-version`, `requires-python = ">=3.14,<3.15"`); FastAPI 0.142, Uvicorn 0.54 (`uvicorn[standard]`), Pydantic 2.13, pydantic-settings 2.15, SQLAlchemy 2.0.54, PyMySQL 1.2 with `cryptography` (MySQL 8.4's default `caching_sha2_password` needs it for the first login without TLS), Alembic 1.20, azure-storage-blob 12.31. Dev group: pytest 9.1, httpx2 2.13 (Starlette 1.7's TestClient deprecates `httpx` in favour of `httpx2`), ruff 0.16, mypy 2.4. Exact versions live in `uv.lock`.
 
 **Configuration** (`config.py`, P-052): `Settings` reads environment variables only.
 
@@ -103,11 +104,11 @@ Only the gateway is published on all interfaces. MySQL, Azurite and the backend 
 
 `Settings` has no defaults for `DB_HOST`, `DB_PASSWORD` or `BLOB_CONNECTION_STRING`; the app fails to start with a clear message if they are missing. The database URL is built with `sqlalchemy.URL.create("mysql+pymysql", …, query={"charset": "utf8mb4"})`, so passwords with special characters need no escaping.
 
-**Application** (`main.py`): `create_app(settings)` builds the app so tests can pass their own settings. The lifespan creates the engine (`pool_pre_ping=True`) and the `BlobStore`, calls `ensure_container()` (logged and tolerated if Azurite is not reachable yet, so liveness stays up and readiness reports it), and disposes the engine on shutdown. OpenAPI is served at `/api/openapi.json` and the docs page at `/api/docs`; `redoc_url=None`. Uvicorn runs one process per container and handles SIGTERM gracefully.
+**Application** (`main.py`): `create_app(settings=None, readiness=None)` builds the app; Uvicorn runs it with `--factory`, so importing `app.main` never reads the environment and tests pass their own settings and fake readiness checks. It creates the engine (`pool_pre_ping=True`, `connect_timeout=2`, session time zone `+00:00`) and the `BlobStore`; the lifespan calls `ensure_container()` (never raises; if Azurite is not reachable yet, liveness stays up and readiness keeps retrying it) and disposes the engine on shutdown. OpenAPI is served at `/api/openapi.json` and the docs page at `/api/docs`; `redoc_url=None`. Uvicorn runs one process per container and handles SIGTERM gracefully.
 
 **Logging** (`logging.py`): stdlib `logging` to stdout, `%(asctime)s %(levelname)s %(name)s %(message)s`, level from `LOG_LEVEL`. Uvicorn's access log stays on (method, path, status). Nothing logs request bodies, headers, cookies, connection strings or passwords (PRD §12).
 
-**Dockerfile:** stage 1 copies `uv` from `ghcr.io/astral-sh/uv:0.12` into `python:3.14-slim`, runs `uv sync --locked --no-dev --no-install-project` on `pyproject.toml` + `uv.lock` (cached layer), then copies the source. Stage 2 is `python:3.14-slim` with the virtualenv and source copied in, a non-root `app` user, `PATH` pointing at the venv, `EXPOSE 8000`, and `CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]`. `app.main:app` is created from `Settings()` at import. The same image runs `alembic upgrade head` for the `migrate` service.
+**Dockerfile:** stage 1 copies `uv` from `ghcr.io/astral-sh/uv:0.12` into `python:3.14-slim`, runs `uv sync --locked --no-dev` (the backend is an application, `tool.uv.package = false`) on `pyproject.toml` + `uv.lock` (cached layer), then copies the source. Stage 2 is `python:3.14-slim` with the virtualenv and source copied in, a non-root `app` user, `PATH` pointing at the venv, `EXPOSE 8000`, and `CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]`. The same image runs `alembic upgrade head` for the `migrate` service.
 
 ## 6. Data model
 
@@ -140,8 +141,8 @@ What deleting a version means for its children is decided in Phase 5; `SET NULL`
 - `GET /api/health` → `200 {"status": "ok"}`. Touches nothing else, so a database outage never makes Kubernetes restart pods.
 - `GET /api/health/ready` → `200` or `503` with `{"status": "ok" | "unavailable", "checks": {"database": "ok" | "unavailable", "migrations": "ok" | "unavailable", "blob": "ok" | "unavailable"}}`.
   - `database`: `SELECT 1`.
-  - `migrations`: the `alembic_version` row equals the script directory's head revision (read once at startup).
-  - `blob`: the container exists (`BlobStore.ping()`).
+  - `migrations`: `SELECT version_num FROM alembic_version` equals the script directory's head revision (read once at startup).
+  - `blob`: `BlobStore.ensure_container()` — the container exists, created if missing (so a backend that started before Azurite recovers on its own).
   - Each check has a 2-second budget (MySQL `connect_timeout`, Azure client timeouts). Failures are logged with their exception; the response never includes error text.
 
 **Errors** (`errors.py`, P-052): every error response is `{"error": {"code": str, "message": str}}`, plus `details` for validation.
@@ -150,15 +151,14 @@ What deleting a version means for its children is decided in Phase 5; `SET NULL`
 | --- | --- | --- | --- |
 | `HTTPException` / Starlette HTTP errors (incl. unknown route) | its status | `not_found`, `method_not_allowed`, otherwise `http_<status>` | the exception's detail, or the standard phrase |
 | Request validation | 422 | `invalid_request` | `The request is not valid.`; `details: [{"field": "body.name", "message": "…"}]` |
-| Unhandled exception | 500 | `internal_error` | `Something went wrong.` (traceback logged) |
+| Unhandled exception | 500 | `internal_error` | `Something went wrong.` (Starlette re-raises after the response, so Uvicorn logs the traceback) |
 
 ## 9. Blob storage
 
 `storage/blobs.py` wraps `azure-storage-blob`'s `BlobServiceClient` (sync):
 
 - `BlobStore.from_connection_string(conn, container)`
-- `ensure_container()` — create if missing; idempotent
-- `ping() -> bool` — the container exists and answers
+- `ensure_container() -> bool` — create the container if missing; idempotent; never raises: returns `False` (and logs a warning) when Blob Storage is unreachable. Its calls use `retry_total=0` and 2-second timeouts, because the SDK's default retries take about 90 seconds against a dead host; `put`/`get`/`exists` keep the client defaults (`retry_total=3`, `connection_timeout=5`, `read_timeout=30`).
 - `exists(hash) -> bool`, `put(hash, data: bytes, content_type)`, `get(hash) -> bytes | None`
 - Blob names are the hash; `hash` must match `^[0-9a-f]{64}$` or `ValueError` is raised. `put` with an existing hash does nothing (deduplication, PRD §6.5); it does not re-verify the bytes; the Phase 5 upload route verifies SHA-256 before calling it.
 
@@ -170,10 +170,10 @@ pytest, with `pyproject.toml` config: `testpaths = ["tests"]`, marker `integrati
 
 - **Unit (no services):** settings parsing and required variables; URL building with a special-character password; error shapes for 404, 405, 422 and an unhandled exception (a test-only route); liveness; readiness with fake checks (all ok → 200; each one failing → 503 with only that check unavailable; no error text in the body); blob hash validation.
 - **Integration (`@pytest.mark.integration`):** against MySQL database `mdit_test` and Azurite, configured by `TEST_DB_*` / `TEST_BLOB_CONNECTION_STRING` variables with localhost defaults matching Compose.
-  - Migrations: `upgrade head` on an empty database, `downgrade base` leaves no tables, `upgrade head` again; `alembic check` finds no difference from the models.
+  - Migrations: `upgrade head` on an empty database, `downgrade base` leaves only the empty `alembic_version` table, `upgrade head` again; `alembic check` finds no difference from the models.
   - Schema: utf8mb4 round-trip (emoji, CJK); unique `(provider, provider_user_id)`, `public_id` and `(document_id, number)` reject duplicates; the provider CHECK rejects other values; deleting a user removes their projects, documents and versions and leaves blobs; deleting a parent version sets its child's `parent_version_id` to NULL; a version with an unknown `content_hash` is rejected; a referenced blob cannot be deleted.
   - Readiness against the real services: 200 at head; 503 with `migrations: unavailable` after `downgrade base`.
-  - BlobStore: `ensure_container` twice; put/exists/get round trip; `get` of a missing hash returns `None`; `put` of an existing hash keeps the first bytes; uses a per-run container name and deletes it afterwards.
+  - BlobStore: `ensure_container` twice returns `True`; against a port nothing listens on it returns `False` within 5 seconds (no services needed); put/exists/get round trip; `get` of a missing hash returns `None`; `put` of an existing hash keeps the first bytes; uses a per-run container name and deletes it afterwards.
 - **Service availability:** a session fixture tries to connect once. Locally, if MySQL or Azurite is unreachable, integration tests are skipped with "Start them with: docker compose up -d mysql azurite". When `MDIT_REQUIRE_SERVICES=1` (set in CI), unreachable services fail the run instead (P-047).
 - Integration tests reset `mdit_test` by migrating it down to base and up to head at the start of the session; schema tests run in transactions that are rolled back.
 
@@ -183,7 +183,7 @@ pytest, with `pyproject.toml` config: `testpaths = ["tests"]`, marker `integrati
 
 - **`changes`**: `dorny/paths-filter@v4` sets `frontend` and `backend` outputs.
 - **`frontend`** (if `frontend` changed or the workflow changed): unchanged steps.
-- **`backend`** (if `backend` changed or the workflow changed): service containers `mysql:8.4` (with `MYSQL_DATABASE=mdit_test` and a health check) and `mcr.microsoft.com/azure-storage/azurite:3.37.0` running `azurite-blob --blobHost 0.0.0.0`; `astral-sh/setup-uv@v10` → `uv sync --locked` → `uv run ruff check .` → `uv run ruff format --check .` → `uv run mypy app` → `uv run pytest` with `MDIT_REQUIRE_SERVICES=1`; `docker build -t mdit-backend:ci backend`.
+- **`backend`** (if `backend` changed or the workflow changed): `docker compose up -d --wait mysql azurite` (the repo's own Compose services, so CI gets the init script and Azurite's `--skipApiVersionCheck`; GitHub service containers cannot override a command); `astral-sh/setup-uv@v10.2.0` (setup-uv publishes no floating major tag) → `uv sync --locked` → `uv run ruff check .` → `uv run ruff format --check .` → `uv run mypy app` → `uv run pytest` with `MDIT_REQUIRE_SERVICES=1`; `docker build -t mdit-backend:ci backend`.
 - **`compose`** (always): `docker compose up -d --build --wait`; then through `http://localhost:8080`: `/` returns HTML containing `<div id="root">`, `/api/health` and `/api/health/ready` return 200; `docker compose logs` on failure; `docker compose down -v` always.
 
 ## 12. Acceptance

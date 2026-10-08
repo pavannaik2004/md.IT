@@ -4,9 +4,9 @@ Single source of truth for project progress. **Read before starting any work; up
 
 ## Current state
 
-- **Phase:** 4 (backend foundation) — spec written, awaiting user review
+- **Phase:** 4 (backend foundation) — plan written, awaiting user review
 - **Branch:** `phase-4-backend-foundation` (from `main` at 94bc6c2; frontend 417 tests)
-- **Next step:** user reviews `docs/superpowers/specs/2026-10-08-phase-4-backend-foundation-design.md`; then write the implementation plan
+- **Next step:** user reviews `docs/superpowers/plans/2026-10-08-phase-4-backend-foundation.md` and picks an execution method (subagent-driven or native)
 - **Deferred minors from Phase 3 review:** files inside a skipped folder aren't counted as skipped; a failed settings write after import lets a retry create a duplicate project; print iframe has no sandbox attribute; zip entry names keep Windows-forbidden characters; export CSS (~89 kB) is in the main bundle; single-document export reads every image's bytes; Deflate64/LZMA zips get "isn’t a zip"; no test for the 500 MB limit; Reload + cancelled leave prompt can lose old lazy chunks; a clash rename can exceed 200 characters
 - **Deferred minors from Phase 2 review:** editor drop of images mixed with other files silently ignores the others; an async image insert can land in another document after a switch, and the drop position isn’t clamped; every autosave rebuilds the path index and re-renders; a link to a folder says “isn’t in this project” instead of “Only links to documents…”; an image whose bytes are missing shows “Loading image…” forever; a raw-HTML `data-doc-id` isn’t escaped in the route or checked against the project; the hover thumbnail isn’t clamped to the viewport or moved on tree scroll
 - **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
@@ -24,7 +24,7 @@ Single source of truth for project progress. **Read before starting any work; up
 | 1. Local editor | Done — merged 2026-09-26 (PR #1) |
 | 2. Technical rendering | Done — merged 2026-10-02 (PR #2) |
 | 3. Customization and export | Done — merged 2026-10-02 (PR #3) |
-| 4. Backend foundation | Spec written — awaiting review |
+| 4. Backend foundation | Plan written — awaiting review |
 | 5. Login and versions | Not started |
 | 6. Kubernetes locally | Not started |
 | 7. Azure | Not started |
@@ -95,3 +95,6 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-10-02 — Pushed `phase-3-customization-export` and opened PR #3 (https://github.com/pavannaik2004/md.IT/pull/3) at the user's request.
 - 2026-10-08 — Found PR #3 merged on 2026-10-02 (merge commit 94bc6c2, CI `frontend` green); it was not yet logged here, and whether the user did the manual “Save as PDF” check is not recorded. Fast-forwarded local `main`, deleted the local Phase 3 branch, created `phase-4-backend-foundation`. Started Phase 4 brainstorming: read PRD §4, §6–§13. Local tools: Python 3.12.6, Docker 29.8 / Compose v5.5 (Docker Desktop not running at the time), Node 22.20; no uv.
 - 2026-10-08 — Phase 4 brainstorming with the user: full §9.2 schema in the first migration, a Compose gateway standing in for the Ingress, uv, tests on real MySQL 8.4 + Azurite. Checked versions (SQLAlchemy 2.1.0 only two weeks old → 2.0.54; Python 3.15 still rc → 3.14; Azurite 3.37.0; dorny/paths-filter v4). User approved all three design sections; wrote the Phase 4 design spec (`docs/superpowers/specs/2026-10-08-phase-4-backend-foundation-design.md`). (decisions P-044…P-053)
+- 2026-10-08 — User approved the Phase 4 spec (“Start”). Began the implementation plan.
+- 2026-10-08 — Planning probes (scratchpad, throwaway): uv 0.12.23 installed for the user (`python -m uv`; not on PATH); Python 3.14.8 via uv; Alembic autogenerate of the §9.2 schema on MySQL 8.4.11 is clean and `alembic check` passes; cascades, SET NULL, RESTRICT, unique keys and utf8mb4 behave as designed (CHECK violations raise OperationalError 3819); dead MySQL fails in ~2 s with `connect_timeout=2`. Found: Azurite 3.37 rejects azure-storage-blob 12.31's API version without `--skipApiVersionCheck`; SDK default retries take 96 s on a dead host; Starlette 1.7 wants `httpx2`; the MySQL init script is executed (not sourced) from Windows mounts; `docker compose up --wait` accepts a one-shot service exiting 0; setup-uv has no `v10` tag. Spec amended. (decision P-054)
+- 2026-10-08 — Wrote the Phase 4 implementation plan (9 tasks: backend project and settings; MySQL/Azurite in Compose, engine and test fixtures; schema models and migration 0001; BlobStore; error shape; health endpoints and app factory; backend image, full Compose stack, gateway and Vite proxy; CI; README and verification), `docs/superpowers/plans/2026-10-08-phase-4-backend-foundation.md`. Code in the plan was run in the scratchpad probe (mypy strict and ruff clean; TestClient checks of 404/405/422/500 and health). Also probed: two Compose services may build the same image tag. Probe containers removed.
