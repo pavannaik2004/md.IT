@@ -18,9 +18,11 @@ def health() -> dict[str, str]:
 def ready(request: Request) -> JSONResponse:
     """Readiness: database, migrations at head, blob container. Details stay in the logs."""
     checks: ReadinessChecks = request.app.state.readiness
+    database = checks.database()
     results = {
-        "database": checks.database(),
-        "migrations": checks.migrations(),
+        "database": database,
+        # Skipped when the database is down: each failed attempt can take seconds (DNS).
+        "migrations": database and checks.migrations(),
         "blob": checks.blob(),
     }
     ok = all(results.values())

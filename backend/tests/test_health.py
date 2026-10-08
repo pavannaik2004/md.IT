@@ -30,16 +30,39 @@ def test_ready_when_every_check_passes() -> None:
     }
 
 
-@pytest.mark.parametrize("failing", ["database", "migrations", "blob"])
-def test_not_ready_when_one_check_fails(failing: str) -> None:
+@pytest.mark.parametrize(
+    ("failing", "unavailable"),
+    [
+        # Migrations can't be read without the database.
+        ("database", {"database", "migrations"}),
+        ("migrations", {"migrations"}),
+        ("blob", {"blob"}),
+    ],
+)
+def test_not_ready_when_one_check_fails(failing: str, unavailable: set[str]) -> None:
     response = make_client(**{failing: False}).get("/api/health/ready")
     assert response.status_code == 503
     body = response.json()
     assert body["status"] == "unavailable"
     assert body["checks"] == {
-        name: "unavailable" if name == failing else "ok"
+        name: "unavailable" if name in unavailable else "ok"
         for name in ("database", "migrations", "blob")
     }
+
+
+def test_migrations_are_not_checked_when_the_database_is_down() -> None:
+    # Each check against an unreachable database can take seconds (DNS); don't pay twice.
+    calls: list[str] = []
+
+    def migrations() -> bool:
+        calls.append("migrations")
+        return True
+
+    checks = ReadinessChecks(database=lambda: False, migrations=migrations, blob=lambda: True)
+    response = TestClient(create_app(fake_settings(), checks)).get("/api/health/ready")
+    assert response.status_code == 503
+    assert response.json()["checks"]["migrations"] == "unavailable"
+    assert calls == []
 
 
 def test_openapi_and_docs_live_under_api() -> None:

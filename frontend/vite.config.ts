@@ -23,6 +23,11 @@ export default defineConfig({
       },
     }),
   ],
+  // `npm run dev` against `docker compose up`: /api goes to the backend (P-045).
+  // 127.0.0.1, not localhost: Node may resolve localhost to ::1, and Compose publishes IPv4.
+  server: {
+    proxy: { '/api': 'http://127.0.0.1:8000' },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
