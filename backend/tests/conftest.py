@@ -4,11 +4,13 @@ from collections.abc import Iterator
 
 import pytest
 from alembic import command
+from azure.storage.blob import ContainerClient
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import OperationalError
 
 from app.config import Settings
 from app.db.session import create_db_engine
+from app.storage.blobs import BlobStore
 from tests.support import alembic_config, make_test_settings, services_unavailable
 
 
@@ -40,3 +42,15 @@ def migrated(engine: Engine) -> Engine:
         command.downgrade(config, "base")
         command.upgrade(config, "head")
     return engine
+
+
+@pytest.fixture(scope="session")
+def blob_store(test_settings: Settings) -> Iterator[BlobStore]:
+    connection_string = test_settings.blob_connection_string.get_secret_value()
+    store = BlobStore.from_connection_string(connection_string, test_settings.blob_container)
+    if not store.ensure_container():
+        services_unavailable("Azurite is not reachable at the test blob endpoint")
+    yield store
+    ContainerClient.from_connection_string(
+        connection_string, test_settings.blob_container
+    ).delete_container()
