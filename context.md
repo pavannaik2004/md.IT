@@ -4,9 +4,9 @@ Single source of truth for project progress. **Read before starting any work; up
 
 ## Current state
 
-- **Phase:** 3 (customization and export) in review as PR #3
-- **Branch:** `phase-3-customization-export` (18 plan tasks + review fixes; 417 tests)
-- **Next step:** CI on PR #3; user does the manual Export PDF → Save as PDF check, then merges
+- **Phase:** 4 (backend foundation) — spec written, awaiting user review
+- **Branch:** `phase-4-backend-foundation` (from `main` at 94bc6c2; frontend 417 tests)
+- **Next step:** user reviews `docs/superpowers/specs/2026-10-08-phase-4-backend-foundation-design.md`; then write the implementation plan
 - **Deferred minors from Phase 3 review:** files inside a skipped folder aren't counted as skipped; a failed settings write after import lets a retry create a duplicate project; print iframe has no sandbox attribute; zip entry names keep Windows-forbidden characters; export CSS (~89 kB) is in the main bundle; single-document export reads every image's bytes; Deflate64/LZMA zips get "isn’t a zip"; no test for the 500 MB limit; Reload + cancelled leave prompt can lose old lazy chunks; a clash rename can exceed 200 characters
 - **Deferred minors from Phase 2 review:** editor drop of images mixed with other files silently ignores the others; an async image insert can land in another document after a switch, and the drop position isn’t clamped; every autosave rebuilds the path index and re-renders; a link to a folder says “isn’t in this project” instead of “Only links to documents…”; an image whose bytes are missing shows “Loading image…” forever; a raw-HTML `data-doc-id` isn’t escaped in the route or checked against the project; the hover thumbnail isn’t clamped to the viewport or moved on tree scroll
 - **Deferred minors from Phase 1 review:** document from another project opens via hand-edited URL; collapsed folder with the open document re-opens on autosave; keyboard gaps (dialog focus trap, arrow keys in menus/tree, SaveStatus announces every save); theme/mode flash on load; nginx gzip; tests for failed-save-then-switch and real-store NotFound path
@@ -23,8 +23,8 @@ Single source of truth for project progress. **Read before starting any work; up
 | --- | --- |
 | 1. Local editor | Done — merged 2026-09-26 (PR #1) |
 | 2. Technical rendering | Done — merged 2026-10-02 (PR #2) |
-| 3. Customization and export | Built — PR #3 open |
-| 4. Backend foundation | Not started |
+| 3. Customization and export | Done — merged 2026-10-02 (PR #3) |
+| 4. Backend foundation | Spec written — awaiting review |
 | 5. Login and versions | Not started |
 | 6. Kubernetes locally | Not started |
 | 7. Azure | Not started |
@@ -93,3 +93,5 @@ Newest last. Format: `YYYY-MM-DD — what was done (files / commits)`.
 - 2026-10-02 — Phase 3 Task 18: verification. Clean `npm ci`: lint ✓, typecheck ✓, 412/412 tests ✓, build ✓. Main bundle 1,385 kB (was 1,296 kB); Mermaid and fflate only in lazy chunks. Service worker precaches 141 entries / 5.4 MB. Container: image builds; /, deep links and /sw.js 200 with no-cache and CSP. Headless Edge against the container: settings (Sans, padding 24px) apply and survive reload; outline lists Check/Diagram/Math/Code and puts the editor on `## Code`; stats correct (13 words, 4 headings, 1 code block, 1 diagram, 2 math, 1 image, 1 link); search marks `needle` and selects it in the editor; HTML export opened offline has 2 KaTeX, 1 SVG diagram, 1 data-URI image, copy button, Geist loaded (765 kB file) and looks like the preview (screenshots compared; blue tint on integral limits was subpixel AA, computed colour is ink); Export PDF opens the print frame with no CSP errors; zip export → Import shows “1 document, 1 image, 1 folder” and recreates the tree; offline reload of /, the workspace and a deep link all work. Only console errors: 3 ERR_INTERNET_DISCONNECTED during the offline navigations, none from page requests (likely the service worker update check). Manual “Save as PDF” check still to do by the user. README status and P-013 extensions updated.
 - 2026-10-02 — Phase 3 final whole-branch review (fresh reviewer, Opus): with fixes; 0 Critical, 3 Important, 11 Minor. Fixed with tests first: dot-named items were dropped on zip export → import; CRLF documents made search select the wrong text (line endings now converted on import and search counts like the editor); the workspace zip export missed unsaved keystrokes (now saves and uses the editor text); a name with stray spaces failed the whole import (re-graded from Minor; names are trimmed before clash checks). Spec §9 amended; decision P-043. 10 minors deferred (Current state). 417 tests; lint, typecheck, build clean.
 - 2026-10-02 — Pushed `phase-3-customization-export` and opened PR #3 (https://github.com/pavannaik2004/md.IT/pull/3) at the user's request.
+- 2026-10-08 — Found PR #3 merged on 2026-10-02 (merge commit 94bc6c2, CI `frontend` green); it was not yet logged here, and whether the user did the manual “Save as PDF” check is not recorded. Fast-forwarded local `main`, deleted the local Phase 3 branch, created `phase-4-backend-foundation`. Started Phase 4 brainstorming: read PRD §4, §6–§13. Local tools: Python 3.12.6, Docker 29.8 / Compose v5.5 (Docker Desktop not running at the time), Node 22.20; no uv.
+- 2026-10-08 — Phase 4 brainstorming with the user: full §9.2 schema in the first migration, a Compose gateway standing in for the Ingress, uv, tests on real MySQL 8.4 + Azurite. Checked versions (SQLAlchemy 2.1.0 only two weeks old → 2.0.54; Python 3.15 still rc → 3.14; Azurite 3.37.0; dorny/paths-filter v4). User approved all three design sections; wrote the Phase 4 design spec (`docs/superpowers/specs/2026-10-08-phase-4-backend-foundation-design.md`). (decisions P-044…P-053)
