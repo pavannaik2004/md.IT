@@ -9,7 +9,7 @@ A local-first technical writing workspace: Markdown editor, live preview, and a 
 
 ## Run it
 
-Requirements: Node 22+, npm, Docker (for the container).
+Requirements: Node 22+, npm, Docker with Compose v2, and [uv](https://docs.astral.sh/uv/) for backend work (`pip install uv`, or the installer from the uv docs).
 
 ```bash
 cd frontend
@@ -26,10 +26,32 @@ docker build -t mdit-frontend frontend
 docker run --rm -p 8080:80 mdit-frontend   # http://localhost:8080
 ```
 
+Everything (MySQL, Azurite, migrations, backend, frontend and a gateway that routes `/api` the way the Kubernetes Ingress will):
+
+```bash
+docker compose up --build   # http://localhost:8080, API at http://localhost:8080/api/docs
+docker compose down         # add -v to delete local server data
+```
+
+Defaults are for local development only; copy `.env.example` to `.env` to change them. MySQL is published on `127.0.0.1:3307`, because a locally installed MySQL often holds 3306.
+
+Backend (from `backend/`; integration tests need `docker compose up -d --wait mysql azurite` and skip without it):
+
+```bash
+uv sync
+uv run pytest
+uv run ruff check . && uv run ruff format --check . && uv run mypy app
+uv run alembic upgrade head   # needs DB_HOST, DB_PORT, DB_PASSWORD, BLOB_CONNECTION_STRING in the environment
+```
+
+`npm run dev` proxies `/api` to the backend on `127.0.0.1:8000`, so it works alongside `docker compose up`.
+
 ## Status
 
 Phase 1 (local editor) complete: projects, folders and documents stored in this browser; CodeMirror editor; live preview; split/editor/preview modes; autosave.
 
 Phase 2 (technical rendering) complete: Mermaid diagrams, KaTeX math, highlighted code blocks with a copy button, and images stored in the project and shown in the tree (drop, paste or Insert image; `![alt](path){width=… align=…}`).
 
-Phase 3 (customization and export) complete: rendering settings (font, letter spacing, line height, margin, padding), heading outline, document statistics, project search (Ctrl/Cmd+Shift+F), export as Markdown, self-contained HTML or PDF (print dialog), project export and import as .zip, and offline reload through a service worker. See `context.md` for progress.
+Phase 3 (customization and export) complete: rendering settings (font, letter spacing, line height, margin, padding), heading outline, document statistics, project search (Ctrl/Cmd+Shift+F), export as Markdown, self-contained HTML or PDF (print dialog), project export and import as .zip, and offline reload through a service worker.
+
+Phase 4 (backend foundation) complete: FastAPI service with liveness (`/api/health`) and readiness (`/api/health/ready`) checks, MySQL 8.4 schema for users, projects, documents, versions and blobs under Alembic, a Blob Storage wrapper tested against Azurite, Docker Compose for the whole stack, and CI for both halves. Sign-in and versions come in Phase 5. See `context.md` for progress.
