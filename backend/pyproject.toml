@@ -1,0 +1,48 @@
+[project]
+name = "mdit-backend"
+version = "0.1.0"
+description = "md.IT version service"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+  "fastapi>=0.142.4,<0.143",
+  "uvicorn[standard]>=0.54,<0.55",
+  "pydantic>=2.13,<2.14",
+  "pydantic-settings>=2.15,<2.16",
+  "sqlalchemy>=2.0.54,<2.1",
+  "pymysql>=1.2,<1.3",
+  "cryptography>=50,<51",
+  "alembic>=1.20,<1.21",
+  "azure-storage-blob>=12.31,<12.32",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=9.1,<9.2",
+  "httpx2>=2.13,<2.14",
+  "ruff>=0.16,<0.17",
+  "mypy>=2.4,<2.5",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+# backend/alembic/ (the migrations folder) would otherwise make the library look first-party.
+known-third-party = ["alembic"]
+
+[tool.mypy]
+strict = true
+python_version = "3.14"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+markers = ["integration: needs MySQL and Azurite (docker compose up -d --wait mysql azurite)"]

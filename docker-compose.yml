@@ -1,0 +1,90 @@
+# md.IT local stack (PRD 10.1). `docker compose up` starts everything; defaults are for
+# local development only. Override them in a .env file (see .env.example).
+name: mdit
+
+services:
+  mysql:
+    image: mysql:8.4
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_DATABASE: ${DB_NAME:-mdit}
+      MYSQL_USER: ${DB_USER:-mdit}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-mdit-dev-password}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # TCP, so the temporary server MySQL runs during first-time setup doesn't count.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+    ports:
+      # 3307 on the host: a locally installed MySQL often already holds 3306 (P-055).
+      - "127.0.0.1:${MYSQL_PORT:-3307}:3306"
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.37.0
+    # azure-storage-blob 12.31 sends an API version Azurite 3.37 doesn't know yet (P-054).
+    command: ["azurite-blob", "--blobHost", "0.0.0.0", "--location", "/data", "--skipApiVersionCheck"]
+    volumes:
+      - azurite-data:/data
+    ports:
+      - "127.0.0.1:10000:10000"
+
+  migrate:
+    build: ./backend
+    image: mdit-backend:local
+    command: ["alembic", "upgrade", "head"]
+    environment: &backend-env
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-mdit}
+      DB_USER: ${DB_USER:-mdit}
+      DB_PASSWORD: ${DB_PASSWORD:-mdit-dev-password}
+      BLOB_CONNECTION_STRING: ${BLOB_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;}
+      BLOB_CONTAINER: ${BLOB_CONTAINER:-mdit-blobs}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build: ./backend
+    image: mdit-backend:local
+    environment: *backend-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      azurite:
+        condition: service_started
+    healthcheck:
+      # The slim image has no curl.
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2).status == 200 else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    build: ./frontend
+    image: mdit-frontend:local
+
+  gateway:
+    image: nginx:1.28-alpine
+    volumes:
+      - ./gateway/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+
+volumes:
+  mysql-data:
+  azurite-data:
