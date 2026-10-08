@@ -4,17 +4,43 @@ on:
   pull_request:
     paths:
       - 'frontend/**'
+      - 'backend/**'
+      - 'gateway/**'
+      - 'mysql/**'
+      - 'docker-compose.yml'
       - '.github/workflows/ci.yml'
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci.yml'
+            backend:
+              - 'backend/**'
+              - 'mysql/**'
+              - 'docker-compose.yml'
+              - '.github/workflows/ci.yml'
+
   frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,3 +59,55 @@ jobs:
       - run: npm run build
       - name: Build image (no push)
         run: docker build -t mdit-frontend:ci .
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      # The repo's own Compose services: CI gets the mdit_test init script and Azurite's
+      # --skipApiVersionCheck, which GitHub service containers can't pass (P-054).
+      - name: Start MySQL and Azurite
+        working-directory: .
+        run: docker compose up -d --wait mysql azurite
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          working-directory: backend
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy app
+      - name: Tests (services required)
+        run: uv run pytest
+        env:
+          MDIT_REQUIRE_SERVICES: '1'
+      - name: Build image (no push)
+        run: docker build -t mdit-backend:ci .
+      - name: Service logs
+        if: failure()
+        working-directory: .
+        run: docker compose logs mysql azurite
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Start the whole stack
+        run: docker compose up -d --build --wait --wait-timeout 300
+      - name: Check through the gateway
+        run: |
+          curl -fsS http://localhost:8080/ | grep -q '<div id="root">'
+          curl -fsS http://localhost:8080/api/health
+          curl -fsS http://localhost:8080/api/health/ready
+      - name: Logs
+        if: failure()
+        run: docker compose logs
+      - name: Stop
+        if: always()
+        run: docker compose down -v
