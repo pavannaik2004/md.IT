@@ -2,10 +2,13 @@
 
 import os
 import uuid
+from pathlib import Path
 from typing import Any, NoReturn
 
 import pytest
+from alembic.config import Config
 from pydantic import SecretStr
+from sqlalchemy import Connection
 
 from app.config import Settings
 
@@ -14,6 +17,7 @@ AZURITE_ACCOUNT_KEY = (
     "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
 )
 START_HINT = "Start them with: docker compose up -d --wait mysql azurite"
+BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 
 def azurite_connection_string(host: str = "127.0.0.1", port: int = 10000) -> str:
@@ -59,3 +63,10 @@ def services_unavailable(reason: str) -> NoReturn:
     if os.environ.get("MDIT_REQUIRE_SERVICES") == "1":
         pytest.fail(message, pytrace=False)
     pytest.skip(message)
+
+
+def alembic_config(connection: Connection) -> Config:
+    """Alembic config that migrates over the given connection instead of Settings()."""
+    config = Config(str(BACKEND_DIR / "alembic.ini"))
+    config.attributes["connection"] = connection
+    return config

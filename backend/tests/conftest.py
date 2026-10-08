@@ -3,12 +3,13 @@
 from collections.abc import Iterator
 
 import pytest
+from alembic import command
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import OperationalError
 
 from app.config import Settings
 from app.db.session import create_db_engine
-from tests.support import make_test_settings, services_unavailable
+from tests.support import alembic_config, make_test_settings, services_unavailable
 
 
 @pytest.fixture(scope="session")
@@ -29,3 +30,13 @@ def engine(test_settings: Settings) -> Iterator[Engine]:
         )
     yield engine
     engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def migrated(engine: Engine) -> Engine:
+    """mdit_test rebuilt once per run: down to base, then up to head."""
+    with engine.begin() as connection:
+        config = alembic_config(connection)
+        command.downgrade(config, "base")
+        command.upgrade(config, "head")
+    return engine
