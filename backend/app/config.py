@@ -10,7 +10,8 @@ LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(frozen=True, extra="ignore")
+    # hide_input_in_errors: a missing variable must not echo the others (secrets) into logs.
+    model_config = SettingsConfigDict(frozen=True, extra="ignore", hide_input_in_errors=True)
 
     db_host: str
     db_port: int = 3306

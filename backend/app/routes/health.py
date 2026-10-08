@@ -9,8 +9,12 @@ router = APIRouter(prefix="/api/health", tags=["health"])
 
 
 @router.get("")
-def health() -> dict[str, str]:
-    """Liveness: the process answers. Never touches the database or Blob Storage."""
+async def health() -> dict[str, str]:
+    """Liveness: the process answers. Never touches the database or Blob Storage.
+
+    Async, so it runs on the event loop and never waits for a worker thread that a hung
+    readiness check may be holding.
+    """
     return {"status": "ok"}
 
 

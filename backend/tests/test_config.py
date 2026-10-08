@@ -53,6 +53,17 @@ def test_missing_required_values_fail(env) -> None:
     assert missing == {"db_host", "db_password", "blob_connection_string"}
 
 
+def test_configuration_errors_do_not_print_secrets(env) -> None:
+    # DB_HOST missing: the error must name it without echoing the other values it was given.
+    env(DB_PASSWORD="hunter2-password", BLOB_CONNECTION_STRING="AccountKey=sekret-key")
+    with pytest.raises(ValidationError) as info:
+        Settings()
+    message = str(info.value)
+    assert "db_host" in message
+    assert "hunter2" not in message
+    assert "sekret" not in message
+
+
 def test_secrets_stay_out_of_repr(env) -> None:
     env(**REQUIRED)
     text = repr(Settings())

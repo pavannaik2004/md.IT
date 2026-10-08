@@ -11,7 +11,7 @@ from app.config import Settings
 from app.db.session import create_db_engine
 from app.errors import install_error_handlers
 from app.logging import configure_logging
-from app.readiness import ReadinessChecks, build_readiness
+from app.readiness import ReadinessChecks, build_readiness, readiness_engine
 from app.routes import health
 from app.storage.blobs import BlobStore
 
@@ -22,6 +22,7 @@ def create_app(
     settings = settings or Settings()  # type: ignore[call-arg]  # values come from env vars
     configure_logging(settings.log_level)
     engine = create_db_engine(settings)
+    probe_engine = readiness_engine(settings)
     blobs = BlobStore.from_connection_string(
         settings.blob_connection_string.get_secret_value(), settings.blob_container
     )
@@ -32,6 +33,7 @@ def create_app(
         await run_in_threadpool(blobs.ensure_container)
         yield
         engine.dispose()
+        probe_engine.dispose()
 
     app = FastAPI(
         title="md.IT API",
@@ -43,7 +45,7 @@ def create_app(
     )
     app.state.engine = engine
     app.state.blobs = blobs
-    app.state.readiness = readiness or build_readiness(engine, blobs)
+    app.state.readiness = readiness or build_readiness(probe_engine, blobs)
     install_error_handlers(app)
     app.include_router(health.router)
     return app

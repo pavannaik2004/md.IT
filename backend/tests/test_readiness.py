@@ -1,14 +1,21 @@
 """Real readiness checks against services that are down, and logging setup."""
 
+import contextlib
+import inspect
 import logging
+import socket
+import threading
 import time
 from collections.abc import Iterator
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app.db.session import create_db_engine
 from app.logging import configure_logging
+from app.main import create_app
 from app.readiness import database_check, migrations_check
+from app.routes.health import health
 from tests.support import fake_settings
 
 
@@ -19,6 +26,43 @@ def test_database_check_reports_an_unreachable_database(caplog: pytest.LogCaptur
     assert time.monotonic() - started < 5
     assert "Database is unavailable" in caplog.text
     engine.dispose()
+
+
+@pytest.fixture
+def silent_server() -> Iterator[int]:
+    """A TCP server that accepts connections and never answers, like a frozen database."""
+    listener = socket.create_server(("127.0.0.1", 0))
+    accepted: list[socket.socket] = []
+
+    def accept() -> None:
+        with contextlib.suppress(OSError):
+            while True:
+                accepted.append(listener.accept()[0])
+
+    threading.Thread(target=accept, daemon=True).start()
+    yield listener.getsockname()[1]
+    listener.close()
+    for connection in accepted:
+        connection.close()
+
+
+def test_readiness_gives_up_on_a_database_that_never_answers(silent_server: int) -> None:
+    client = TestClient(create_app(fake_settings(db_port=silent_server)))
+    result: dict[str, int] = {}
+
+    def probe() -> None:
+        result["status"] = client.get("/api/health/ready").status_code
+
+    thread = threading.Thread(target=probe, daemon=True)
+    thread.start()
+    thread.join(timeout=10)
+    assert not thread.is_alive(), "readiness hung on a silent database"
+    assert result["status"] == 503
+
+
+def test_liveness_never_waits_for_the_worker_threads() -> None:
+    # Blocked readiness checks hold sync worker threads; liveness must not need one.
+    assert inspect.iscoroutinefunction(health)
 
 
 def test_migrations_check_reports_an_unreachable_database() -> None:

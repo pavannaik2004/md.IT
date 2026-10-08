@@ -10,6 +10,8 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.config import Settings
+from app.db.session import create_db_engine
 from app.storage.blobs import BlobStore
 
 log = logging.getLogger(__name__)
@@ -57,6 +59,11 @@ def migrations_check(engine: Engine, head: str | None) -> Callable[[], bool]:
         return True
 
     return check
+
+
+def readiness_engine(settings: Settings) -> Engine:
+    """A separate, small engine whose every step gives up within about two seconds."""
+    return create_db_engine(settings, io_timeout=2, pool_size=1, max_overflow=0, pool_timeout=2)
 
 
 def build_readiness(engine: Engine, blobs: BlobStore) -> ReadinessChecks:
