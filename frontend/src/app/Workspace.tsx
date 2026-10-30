@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import type { VersionSummary } from '../api';
 import { useAuth } from '../auth';
-import type { EditorHandle } from '../editor';
+import { withKey, type EditorHandle } from '../editor';
 import { exportDocument, exportProject } from '../export';
 import { analyze, render } from '../renderer';
 import { SEARCH_INPUT_ID, SearchBox, SearchResults, type SearchMatch } from '../search';
 import { toCssVars, useRenderingSettings } from '../settings';
-import { IMAGE_ACCEPT, SETTINGS, useDocuments, useProject, useSettingState, type ImageAsset } from '../store';
+import { createDocument, IMAGE_ACCEPT, SETTINGS, useDocuments, useProject, userMessage, useSettingState, type ImageAsset } from '../store';
 import { readVersion } from '../sync';
 import { FileTree } from '../tree';
 import { Button, IconButton, SaveStatus, SegmentedControl, Wordmark, type SegmentedOption } from '../ui';
@@ -22,7 +22,9 @@ import { Notice, type NoticeMessage } from './Notice';
 import { SidePanel, type PanelTab } from './SidePanel';
 import { useResolvedTheme } from './theme';
 import { SaveVersionDialog } from './SaveVersionDialog';
+import { ShortcutsDialog } from './ShortcutsDialog';
 import { ThemeMenu } from './ThemeMenu';
+import { TreeResizer, useTreeWidth } from './TreeResizer';
 import { useDocumentDraft } from './useDocumentDraft';
 import { useProjectFiles } from './useProjectFiles';
 import { useVersionActions } from './useVersionActions';
@@ -43,6 +45,9 @@ export function Workspace() {
   const [mode, setMode] = useSettingState<ViewMode>(SETTINGS.mode, 'split');
   const [panelOpen, setPanelOpen] = useSettingState<boolean>(SETTINGS.panel, false);
   const [panelTab, setPanelTab] = useSettingState<PanelTab>(SETTINGS.panelTab, 'outline');
+  const [treeOpen, setTreeOpen] = useSettingState<boolean>(SETTINGS.tree, true);
+  const treeWidth = useTreeWidth();
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const draft = useDocumentDraft(docId);
   const theme = useResolvedTheme();
   const [rendering, updateRendering, resetRendering] = useRenderingSettings();
@@ -68,10 +73,23 @@ export function Workspace() {
   const canSaveVersion = auth.state === 'signed-in' && docReady;
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
+  // Search lives in the tree, so a hidden tree opens first and search takes the focus once it shows.
+  const focusSearchOnOpen = useRef(false);
+  useEffect(() => {
+    if (!treeOpen || !focusSearchOnOpen.current) return;
+    focusSearchOnOpen.current = false;
+    document.getElementById(SEARCH_INPUT_ID)?.focus();
+  }, [treeOpen]);
+
   // Ctrl/Cmd+S saves now (never the browser's "Save page"); Ctrl/Cmd+Shift+S saves a version;
-  // Ctrl/Cmd+Shift+F focuses project search.
+  // Ctrl/Cmd+Shift+F focuses project search; Ctrl/Cmd+\ shows or hides the tree; F1 lists all of these.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'F1') {
+        event.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
       const key = event.key.toLowerCase();
       if (key === 's' && event.shiftKey) {
@@ -82,12 +100,20 @@ export function Workspace() {
         saveNow();
       } else if (key === 'f' && event.shiftKey) {
         event.preventDefault();
-        document.getElementById(SEARCH_INPUT_ID)?.focus();
+        if (treeOpen) {
+          document.getElementById(SEARCH_INPUT_ID)?.focus();
+        } else {
+          focusSearchOnOpen.current = true;
+          setTreeOpen(true);
+        }
+      } else if (key === '\\') {
+        event.preventDefault();
+        setTreeOpen(!treeOpen);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [saveNow, canSaveVersion]);
+  }, [saveNow, canSaveVersion, treeOpen, setTreeOpen]);
 
   const openDocument = useCallback((id: string) => navigate(`/p/${projectId}/d/${id}`), [navigate, projectId]);
   const closeDocument = useCallback(() => navigate(`/p/${projectId}`, { replace: true }), [navigate, projectId]);
@@ -103,22 +129,28 @@ export function Workspace() {
   const currentText = useCallback(() => editorRef.current?.getText() ?? draft.previewSource, [draft.previewSource]);
   const versions = useVersionActions({ docId, draft, currentText, notify: showNotice, openDocument });
   const versionSaved = draft.saveState === 'saved' && docRow !== undefined && !docRow.dirty && docRow.headVersionId !== undefined;
-  const [viewing, setViewing] = useState<{ version: VersionSummary; text: string; latestId: string } | null>(null);
+  const [viewing, setViewing] = useState<{ version: VersionSummary; text: string } | null>(null);
   const viewerHtml = useMemo(() => (viewing ? render(viewing.text, files.context) : ''), [viewing, files.context]);
   useEffect(() => setViewing(null), [docId]);
   // The editor was unmounted while the viewer showed; it must come back with the stored text,
   // not the text it was first loaded with (edits since then would vanish, then be overwritten).
-  const { reload: reloadDraft } = draft;
-  const closeViewer = useCallback(() => {
+  const { reload: reloadDraft, flush: flushDraft } = draft;
+  const closeViewer = useCallback(async () => {
+    try {
+      await flushDraft(); // an edit typed while the version was opening
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : 'Your last changes couldn’t be saved in this browser.');
+      return;
+    }
     setViewing(null);
     reloadDraft();
-  }, [reloadDraft]);
+  }, [flushDraft, reloadDraft, showNotice]);
   const openVersion = useCallback(
-    async (version: VersionSummary, latestId: string) => {
+    async (version: VersionSummary) => {
       try {
         await draft.flush();
         const { text } = await readVersion(version.id);
-        setViewing({ version, text, latestId });
+        setViewing({ version, text });
       } catch (error) {
         showNotice(`Couldn’t open version ${version.number}: ${error instanceof Error ? error.message.replace(/[.\s]+$/, '') : 'something went wrong'}.`);
       }
@@ -126,11 +158,22 @@ export function Workspace() {
     [draft, showNotice],
   );
 
+  const newDocument = useCallback(async () => {
+    try {
+      openDocument((await createDocument(projectId, null)).id);
+    } catch (error) {
+      showNotice(userMessage(error));
+    }
+  }, [projectId, openDocument, showNotice]);
+
   const insertFiles = useCallback(
     async (list: File[], at: number | null) => {
       if (list.length === 0) return;
+      // The editor remounts per document and per restore, so a new handle means the text changed under us.
+      const editor = editorRef.current;
       const { markdown, errors } = await addImagesNextTo(projectId, docFolderId, list);
-      if (markdown) editorRef.current?.insertBlock(markdown, at);
+      if (markdown && editor && editor === editorRef.current) editor.insertBlock(markdown, at);
+      else if (markdown) errors.push('Added to the project, but it wasn’t inserted because the open document changed.');
       if (errors.length > 0) showNotice(errors.join(' '));
     },
     [projectId, docFolderId, showNotice],
@@ -204,6 +247,12 @@ export function Workspace() {
     <div className="ws">
       <header className="app-toolbar ws-toolbar">
         <div className="ws-left">
+          <IconButton
+            icon="sidebar"
+            label={withKey(treeOpen ? 'Hide file tree' : 'Show file tree', 'Mod-\\')}
+            active={treeOpen}
+            onClick={() => setTreeOpen(!treeOpen)}
+          />
           <Link to="/" className="home-link" aria-label="All projects">
             <Wordmark />
           </Link>
@@ -213,10 +262,19 @@ export function Workspace() {
           <span className="ws-project" title={project.name}>
             {project.name}
           </span>
+          {docRow && (
+            <>
+              <span className="ws-crumb-sep" aria-hidden="true">
+                /
+              </span>
+              <span className="ws-document" title={docRow.title}>
+                {docRow.title}
+              </span>
+            </>
+          )}
         </div>
         <SegmentedControl label="View" value={mode} onChange={setMode} options={VIEW_OPTIONS} />
         <div className="ws-right">
-          <IconButton icon="image" label="Insert image" disabled={!docReady} onClick={() => fileInputRef.current?.click()} />
           <input
             ref={fileInputRef}
             type="file"
@@ -246,12 +304,13 @@ export function Workspace() {
             onBeforeLeave={draft.flush}
             onAccountDeleted={() => showNotice('Your account was deleted. Your projects are still in this browser.')}
           />
-          <IconButton icon="sidebar" label={panelOpen ? 'Hide panel' : 'Show panel'} active={panelOpen} onClick={() => setPanelOpen(!panelOpen)} />
+          <IconButton icon="panel-right" label={panelOpen ? 'Hide panel' : 'Show panel'} active={panelOpen} onClick={() => setPanelOpen(!panelOpen)} />
+          <IconButton icon="keyboard" label="Keyboard shortcuts (F1)" onClick={() => setShortcutsOpen(true)} />
           <ThemeMenu />
         </div>
       </header>
       <div className="ws-body">
-        <aside className="ws-tree" aria-label="Project files">
+        <aside className="ws-tree" aria-label="Project files" hidden={!treeOpen} style={{ '--sidebar-width': `${treeWidth.width}px` } as CSSProperties}>
           <SearchBox value={query} onChange={setQuery} />
           {searching && <SearchResults projectId={projectId} query={query} onOpenDocument={openFromSearch} onReveal={revealFromSearch} />}
           <div className="ws-tree-files" hidden={searching}>
@@ -267,6 +326,7 @@ export function Workspace() {
             />
           </div>
         </aside>
+        {treeOpen && <TreeResizer width={treeWidth.width} onResize={treeWidth.preview} onResizeEnd={treeWidth.commit} />}
         <main ref={mainRef} className={`ws-main mode-${mode}`}>
           <DocumentArea
             docId={docId}
@@ -276,6 +336,8 @@ export function Workspace() {
             proseStyle={proseStyle}
             editorRef={editorRef}
             onImageFiles={(list, at) => void insertFiles(list, at)}
+            onInsertImage={() => fileInputRef.current?.click()}
+            onNewDocument={() => void newDocument()}
             onOpenDocument={openDocument}
             onNotice={showNotice}
             viewer={
@@ -287,12 +349,12 @@ export function Workspace() {
                   proseStyle={proseStyle}
                   dirty={docRow?.dirty !== false}
                   onNotice={showNotice}
-                  onClose={closeViewer}
+                  onClose={() => void closeViewer()}
                   onRestore={async () => {
-                    if (await versions.restore(viewing.version.id, viewing.version.number, viewing.latestId)) setViewing(null);
+                    if (await versions.restore(viewing.version.id, viewing.version.number)) setViewing(null);
                   }}
                   onDelete={async () => {
-                    if (await versions.remove(viewing.version.id)) closeViewer();
+                    if (await versions.remove(viewing.version.id)) await closeViewer();
                   }}
                 />
               )
@@ -315,12 +377,13 @@ export function Workspace() {
                 headVersionId={docRow?.headVersionId}
                 signedIn={auth.state === 'signed-in'}
                 refreshKey={versions.refreshKey}
-                onOpen={(version, latestId) => void openVersion(version, latestId)}
+                onOpen={(version) => void openVersion(version)}
               />
             }
           />
         )}
       </div>
+      {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
       {saveDialogOpen && <SaveVersionDialog onSave={versions.save} onClose={() => setSaveDialogOpen(false)} />}
       {versions.conflict && (
         <ConflictDialog
