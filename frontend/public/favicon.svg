@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .ground { fill: #faf9f7; }
+    .ink { fill: #1b1a18; }
+    .dot { fill: #0d6b62; }
+    @media (prefers-color-scheme: dark) {
+      .ground { fill: #141413; }
+      .ink { fill: #edebe7; }
+      .dot { fill: #5cc4b8; }
+    }
+  </style>
+  <rect class="ground" width="32" height="32" rx="7"/>
+  <text class="ink" x="1.5" y="22.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="18" font-weight="700" letter-spacing="-2">md</text>
+  <rect class="dot" x="23" y="18" width="5" height="5" rx="1"/>
+</svg>

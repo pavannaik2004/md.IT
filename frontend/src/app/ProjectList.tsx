@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { ConfirmDialog, TextFieldDialog } from '../dialogs';
 import { exportProject } from '../export';
 import { plural } from '../lib/text';
@@ -7,10 +7,11 @@ import { formatRelativeTime } from '../lib/time';
 import {
   createProject, deleteProject, renameProject, setProjectDescription, useProjectSummaries, userMessage, type ProjectSummary,
 } from '../store';
-import { Button, Callout, EmptyState, IconButton, MenuButton, Wordmark } from '../ui';
+import { Badge, Button, Callout, EmptyState, Icon, IconButton, Input, MenuButton, Wordmark } from '../ui';
 import { AccountMenu } from './AccountMenu';
 import { CloudProjects } from './CloudProjects';
 import { ImportDialog } from './ImportDialog';
+import { createSampleProject, samplePath } from './sampleProject';
 import { StorageWarning } from './StorageWarning';
 import { ThemeMenu } from './ThemeMenu';
 
@@ -27,26 +28,52 @@ function deleteMessage(project: ProjectSummary): string {
   return `Delete “${project.name}”${contents}? This can’t be undone.`;
 }
 
+/** Above this many projects the list gets a filter field. */
+const FILTER_FROM = 7;
+
 export function ProjectList() {
   const projects = useProjectSummaries();
   const navigate = useNavigate();
-  const [dialog, setDialog] = useState<ProjectDialog>(null);
+  const location = useLocation();
+  // "Start writing" on the landing page arrives with { create: true } (P-100).
+  const [dialog, setDialog] = useState<ProjectDialog>(() => ((location.state as { create?: boolean } | null)?.create ? { kind: 'create' } : null));
+  useEffect(() => {
+    // Forget the request so a reload doesn't open the dialog again.
+    if ((location.state as { create?: boolean } | null)?.create) navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, navigate]);
   const close = () => setDialog(null);
   const open = (id: string) => navigate(`/p/${id}`);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState('');
+  const [creatingSample, setCreatingSample] = useState(false);
   const exportZip = (project: ProjectSummary) =>
     void exportProject(project.id).catch((err: unknown) => setError(`Couldn’t export: ${userMessage(err)}`));
+  const trySample = async () => {
+    setCreatingSample(true);
+    try {
+      navigate(samplePath(await createSampleProject()));
+    } catch (err) {
+      setError(`Couldn’t create the sample project: ${userMessage(err)}`);
+      setCreatingSample(false);
+    }
+  };
   const newProjectButton = (
     <Button variant="primary" icon="plus" onClick={() => setDialog({ kind: 'create' })}>
       New project
     </Button>
   );
+  const query = filter.trim().toLocaleLowerCase();
+  const shown = projects?.filter(
+    (p) => query === '' || p.name.toLocaleLowerCase().includes(query) || p.description.toLocaleLowerCase().includes(query),
+  );
 
   return (
     <div className="page">
       <header className="app-toolbar">
-        <Wordmark />
+        <Link to="/welcome" className="home-link" aria-label="About md.IT">
+          <Wordmark />
+        </Link>
         <span className="app-toolbar-spacer" />
         <AccountMenu />
         <ThemeMenu />
@@ -54,7 +81,10 @@ export function ProjectList() {
       <main className="projects">
         <StorageWarning />
         <div className="projects-head">
-          <h1>Projects</h1>
+          <div className="projects-title">
+            <h1>Projects</h1>
+            {projects && projects.length > 0 && <span className="projects-count">{plural(projects.length, 'project')} in this browser</span>}
+          </div>
           <div className="projects-actions">
             <Button onClick={() => importInputRef.current?.click()}>Import project</Button>
             {projects && projects.length > 0 && newProjectButton}
@@ -78,20 +108,53 @@ export function ProjectList() {
           </Callout>
         )}
         {projects?.length === 0 && (
-          <EmptyState icon="folder" title="No projects yet" action={newProjectButton}>
-            Projects live in this browser. Create one to start writing.
-          </EmptyState>
+          <div className="projects-empty">
+            <EmptyState
+              icon="folder"
+              title="No projects yet"
+              action={
+                <div className="projects-empty-actions">
+                  {newProjectButton}
+                  <Button disabled={creatingSample} onClick={() => void trySample()}>
+                    {creatingSample ? 'Creating the sample…' : 'Try a sample project'}
+                  </Button>
+                </div>
+              }
+            >
+              Projects live in this browser. Create one to start writing, or open a short tour of what md.IT can do.
+            </EmptyState>
+          </div>
         )}
-        {projects && projects.length > 0 && (
+        {projects && projects.length >= FILTER_FROM && (
+          <Input
+            className="projects-filter"
+            icon="search"
+            type="search"
+            aria-label="Filter projects"
+            placeholder="Filter projects"
+            value={filter}
+            onChange={(event) => setFilter(event.currentTarget.value)}
+          />
+        )}
+        {shown && projects && projects.length > 0 && shown.length === 0 && (
+          <p className="projects-none">No project matches “{filter.trim()}”.</p>
+        )}
+        {shown && shown.length > 0 && (
           <ul className="project-list">
-            {projects.map((project) => (
+            {shown.map((project) => (
               <li key={project.id} className="project-row">
                 <button type="button" className="project-open" onClick={() => open(project.id)}>
-                  <span className="project-name">{project.name}</span>
-                  {project.description && <span className="project-desc">{project.description}</span>}
-                  <span className="project-meta">
-                    {plural(project.documentCount, 'document')} · Updated {formatRelativeTime(project.updatedAt)}
+                  <span className="project-tile" aria-hidden="true">
+                    <Icon name="folder" />
                   </span>
+                  <span className="project-text">
+                    <span className="project-name">{project.name}</span>
+                    {project.description && <span className="project-desc">{project.description}</span>}
+                    <span className="project-meta">
+                      {plural(project.documentCount, 'document')} · Updated {formatRelativeTime(project.updatedAt)}
+                    </span>
+                  </span>
+                  {project.cloudProjectId !== undefined && <Badge tone="accent">In the cloud</Badge>}
                 </button>
                 <MenuButton
                   label={`Actions for ${project.name}`}

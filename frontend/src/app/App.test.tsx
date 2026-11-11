@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createApi, setApi } from '../api';
-import { clearDatabase, setSetting, SETTINGS } from '../store';
+import { clearDatabase, createProject, setSetting, SETTINGS } from '../store';
 import { createFakeApi } from '../test/fakeApi';
 import { App } from './App';
 
@@ -13,9 +13,21 @@ beforeEach(async () => {
 });
 
 describe('App', () => {
-  it('shows the project list at /', async () => {
+  it('shows the landing page at / to a new visitor', async () => {
     render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>);
+    expect(await screen.findByText('A calm place to write technical documents.')).toBeInTheDocument();
+  });
+
+  it('shows the project list at /projects', async () => {
+    render(<MemoryRouter initialEntries={['/projects']}><App /></MemoryRouter>);
     expect(await screen.findByRole('heading', { name: 'Projects' })).toBeInTheDocument();
+  });
+
+  it('shows the landing page at /welcome even with projects', async () => {
+    await createProject('OS');
+    render(<MemoryRouter initialEntries={['/welcome']}><App /></MemoryRouter>);
+    expect(await screen.findByText('A calm place to write technical documents.')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Your projects' })).toBeInTheDocument();
   });
 
   it('explains unknown paths', async () => {

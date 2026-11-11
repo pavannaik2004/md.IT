@@ -8,6 +8,8 @@ export const SETTINGS = {
   panelTab: 'ui.panelTab',
   tree: 'ui.tree',
   treeWidth: 'ui.treeWidth',
+  /** Set once the user leaves the landing page for the app; `/` then always opens the project list (P-100). */
+  welcomed: 'ui.welcomed',
   rendering: 'doc.rendering',
 } as const;
 

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { strToU8, zipSync } from 'fflate';
 import { MemoryRouter, Route, Routes, useParams } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearDatabase, createDocument, createProject, getSetting, listProjectSummaries, SETTINGS } from '../store';
+import { clearDatabase, createDocument, createProject, getSetting, linkProject, listProjectSummaries, SETTINGS } from '../store';
 import { ProjectList } from './ProjectList';
 
 function Opened() {
@@ -17,6 +17,7 @@ function renderList() {
       <Routes>
         <Route path="/" element={<ProjectList />} />
         <Route path="/p/:projectId" element={<Opened />} />
+        <Route path="/p/:projectId/d/:docId" element={<Opened />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -111,6 +112,52 @@ describe('ProjectList', () => {
     expect(screen.getByRole('dialog')).toHaveTextContent('Delete “OS” and its 2 documents? This can’t be undone.');
     await user.click(screen.getByRole('button', { name: 'Delete project' }));
     expect(await screen.findByText('No projects yet')).toBeInTheDocument();
+  });
+
+  it('offers the sample project when there are none, and opens it at its first document', async () => {
+    const user = userEvent.setup();
+    renderList();
+    await screen.findByText('No projects yet');
+    await user.click(screen.getByRole('button', { name: 'Try a sample project' }));
+    expect(await screen.findByText(/^Opened /)).toBeInTheDocument();
+    expect((await listProjectSummaries()).map((p) => p.name)).toEqual(['Welcome to md.IT']);
+  });
+
+  it('opens the New project dialog when asked to by the landing page', async () => {
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/', state: { create: true } }]}>
+        <Routes>
+          <Route path="/" element={<ProjectList />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('dialog', { name: 'New project' })).toBeInTheDocument();
+  });
+
+  it('marks projects that are linked to the cloud', async () => {
+    const project = await createProject('OS');
+    await createProject('Thesis');
+    await linkProject(project.id, 'p-cloud');
+    renderList();
+    await waitFor(() => expect(screen.getByText('OS').closest('li')).toHaveTextContent('In the cloud'));
+    expect(screen.getByText('Thesis').closest('li')).not.toHaveTextContent('In the cloud');
+    expect(screen.getByText('2 projects in this browser')).toBeInTheDocument();
+  });
+
+  it('filters a long list by name or description', async () => {
+    const user = userEvent.setup();
+    for (const name of ['OS', 'Networks', 'Compilers', 'Databases', 'Graphics', 'Security']) await createProject(name);
+    renderList();
+    await screen.findByText('Security');
+    expect(screen.queryByRole('searchbox', { name: 'Filter projects' })).not.toBeInTheDocument();
+    await createProject('Thesis');
+    const filter = await screen.findByRole('searchbox', { name: 'Filter projects' });
+    await user.type(filter, 'net');
+    expect(screen.getByText('Networks')).toBeInTheDocument();
+    expect(screen.queryByText('OS')).not.toBeInTheDocument();
+    await user.clear(filter);
+    await user.type(filter, 'zzz');
+    expect(screen.getByText('No project matches “zzz”.')).toBeInTheDocument();
   });
 
   it('shows the storage warning until dismissed', async () => {

@@ -253,7 +253,7 @@ export function Workspace() {
             active={treeOpen}
             onClick={() => setTreeOpen(!treeOpen)}
           />
-          <Link to="/" className="home-link" aria-label="All projects">
+          <Link to="/projects" className="home-link" aria-label="All projects">
             <Wordmark />
           </Link>
           <span className="ws-crumb-sep" aria-hidden="true">
