@@ -7,7 +7,7 @@ import { useResolvedTheme } from '../app/theme';
 import { ThemeMenu } from '../app/ThemeMenu';
 import { Preview } from '../preview';
 import { render } from '../renderer';
-import { SETTINGS, setSetting, useProjectSummaries, userMessage } from '../store';
+import { useProjectSummaries, userMessage } from '../store';
 import { Button, Callout, Menu, SaveStatus, VersionItem, Wordmark } from '../ui';
 import { CoverArt } from './CoverArt';
 import { ProductPreview } from './ProductPreview';
@@ -40,7 +40,7 @@ function Feature({ id, title, children, vignette }: { id: string; title: string;
   );
 }
 
-/** The landing page (P-100): what md.IT is, shown to a new visitor at `/` and to anyone at `/welcome`. */
+/** The landing page at `/` (P-106): what md.IT is, shown on every visit; the app starts at `/projects`. */
 export function Landing() {
   const navigate = useNavigate();
   const projects = useProjectSummaries();
@@ -51,17 +51,13 @@ export function Landing() {
   const [renderRef, renderNear] = useNearViewport<HTMLDivElement>();
   const hasProjects = (projects?.length ?? 0) > 0;
 
-  const enter = async (path: string, state?: unknown) => {
-    await setSetting(SETTINGS.welcomed, true);
-    navigate(path, { state });
-  };
-  const startWriting = () => void enter('/projects', { create: true });
-  const openWorkspace = () => void enter('/projects');
+  const startWriting = () => navigate('/projects', { state: { create: true } });
+  const openWorkspace = () => navigate('/projects');
   const trySample = async () => {
     setBusy(true);
     setError(null);
     try {
-      await enter(samplePath(await createSampleProject()));
+      navigate(samplePath(await createSampleProject()));
     } catch (err) {
       setError(`Couldn’t create the sample project: ${userMessage(err)}`);
       setBusy(false);

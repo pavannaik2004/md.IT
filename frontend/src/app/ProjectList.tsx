@@ -71,7 +71,7 @@ export function ProjectList() {
   return (
     <div className="page">
       <header className="app-toolbar">
-        <Link to="/welcome" className="home-link" aria-label="About md.IT">
+        <Link to="/" className="home-link" aria-label="md.IT home">
           <Wordmark />
         </Link>
         <span className="app-toolbar-spacer" />
