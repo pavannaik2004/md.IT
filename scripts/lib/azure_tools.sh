@@ -37,6 +37,7 @@ tools() {
     -v "$(host_path "$AZ_ROOT"):/work" -w /work \
     -e KUBECONFIG=/work/infra/.kube/config \
     -e ARM_SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-}" \
+    -e TF_VAR_subscription_id="${SUBSCRIPTION_ID:-}" \
     -e TF_IN_AUTOMATION=1 \
     "$(tools_image)" "$@"
 }
