@@ -28,11 +28,9 @@ ensure_tools_image() {
 }
 
 # tools <command...>: run in the tools image with the Azure sign-in volume and the repo at /work.
+# No TTY: its CRLF line endings would corrupt output that is piped on (YAML, values).
 tools() {
-  tty=
-  [ -t 0 ] && [ -t 1 ] && tty=-t
-  # shellcheck disable=SC2086
-  MSYS_NO_PATHCONV=1 docker run --rm -i $tty \
+  MSYS_NO_PATHCONV=1 docker run --rm -i \
     -v "$MDIT_AZ_VOLUME:/root/.azure" \
     -v "$(host_path "$AZ_ROOT"):/work" -w /work \
     -e KUBECONFIG=/work/infra/.kube/config \

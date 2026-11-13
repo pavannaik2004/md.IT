@@ -120,11 +120,14 @@ check() {
 }
 
 # A time limit, so a server that accepts but never answers can't hang the script.
-status() { curl -s --max-time 10 -o /dev/null -w '%{http_code}' "$@" || true; }
+# MDIT_CURL_OPTS: e.g. -k for a staging certificate (scripts/azure.sh smoke).
+# shellcheck disable=SC2086
+status() { curl -s ${MDIT_CURL_OPTS:-} --max-time 10 -o /dev/null -w '%{http_code}' "$@" || true; }
 
 smoke() {
   check "landing page" 200 "$(status "$BASE_URL/")"
-  csp=$(curl -sI --max-time 10 "$BASE_URL/" | grep -ci '^content-security-policy:' || true)
+  # shellcheck disable=SC2086
+  csp=$(curl -sI ${MDIT_CURL_OPTS:-} --max-time 10 "$BASE_URL/" | grep -ci '^content-security-policy:' || true)
   check "frontend's CSP header passes through" 1 "$csp"
   check "SPA deep link" 200 "$(status "$BASE_URL/projects")"
   check "liveness" 200 "$(status "$BASE_URL/api/health")"
