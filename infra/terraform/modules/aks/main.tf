@@ -21,6 +21,11 @@ resource "azurerm_kubernetes_cluster" "this" {
     os_disk_size_gb = 30
     os_disk_type    = "Managed"
     node_count      = 1
+
+    # Azure's defaults, written out: left unset, every apply tries to remove them again.
+    upgrade_settings {
+      max_surge = "10%"
+    }
   }
 
   # Required block since azurerm 5. Manual: our one node pool, no node auto-provisioning
