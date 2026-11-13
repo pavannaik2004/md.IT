@@ -1,0 +1,158 @@
+# Routing (PRD 10.2) with the Gateway API on Envoy Gateway; ingress-nginx, which the PRD
+# names, was retired upstream in March 2026. The GatewayClass `eg` is a cluster add-on
+# (k8s/cluster/), installed with Envoy Gateway itself.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: mdit
+spec:
+  gatewayClassName: eg
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+# Everything under /api goes to the backend; the longest matching prefix wins across routes.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: api
+spec:
+  parentRefs:
+    - name: mdit
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      backendRefs:
+        - name: backend
+          port: 8000
+      # Envoy's default is 15 s; Compose's nginx allows 60 s (account deletion sweeps blobs).
+      timeouts:
+        request: 60s
+---
+# Sign-in redirects: rate-limited tightly per client (PRD 12).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: api-signin
+spec:
+  parentRefs:
+    - name: mdit
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/auth/login
+        - path:
+            type: PathPrefix
+            value: /api/auth/callback
+      backendRefs:
+        - name: backend
+          port: 8000
+      # Envoy's default is 15 s; Compose's nginx allows 60 s (account deletion sweeps blobs).
+      timeouts:
+        request: 60s
+---
+# Image uploads: one request per image in a save, so the limit is generous.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: api-upload
+spec:
+  parentRefs:
+    - name: mdit
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/blobs
+          method: PUT
+      backendRefs:
+        - name: backend
+          port: 8000
+      # Envoy's default is 15 s; Compose's nginx allows 60 s (account deletion sweeps blobs).
+      timeouts:
+        request: 60s
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: web
+spec:
+  parentRefs:
+    - name: mdit
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: frontend
+          port: 80
+---
+# Envoy reads each API request in full before passing it on: bodies over 6 MiB get 413 at the
+# edge (as Compose's client_max_body_size 6m), and the backend never waits on a slow upload.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: api
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: api
+  requestBuffer:
+    limit: 6Mi
+---
+# A route takes one policy, so the limited routes repeat the buffer. Limits count per client
+# address (Distinct) in each Envoy replica.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: api-signin
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: api-signin
+  requestBuffer:
+    limit: 6Mi
+  rateLimit:
+    type: Local
+    local:
+      rules:
+        - clientSelectors:
+            - sourceCIDR:
+                type: Distinct
+                value: 0.0.0.0/0
+          limit:
+            requests: 30
+            unit: Minute
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: api-upload
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: api-upload
+  requestBuffer:
+    limit: 6Mi
+  rateLimit:
+    type: Local
+    local:
+      rules:
+        - clientSelectors:
+            - sourceCIDR:
+                type: Distinct
+                value: 0.0.0.0/0
+          limit:
+            requests: 300
+            unit: Minute

@@ -1,0 +1,51 @@
+# `alembic upgrade head` before a rollout (P-051). Jobs can't be changed once created, so
+# the deploy step deletes and re-creates it (scripts/k8s_local.sh up; deploy.yml in Phase 7).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mdit-migrate
+spec:
+  # Retries with growing back-off cover a database that is still starting (~1-2 min on a
+  # first start). The pods stay for their logs; the next deploy deletes the Job.
+  backoffLimit: 8
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: migrate
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: mdit-backend
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "upgrade", "head"]
+          # Database settings only (P-070): no session, blob or OAuth secrets.
+          envFrom:
+            - configMapRef:
+                name: mdit-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mdit-secrets
+                  key: DB_PASSWORD
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

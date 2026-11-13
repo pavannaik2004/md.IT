@@ -1,5 +1,6 @@
 """Database engine and per-request sessions."""
 
+import ssl
 from collections.abc import Iterator
 from typing import Annotated, Any
 
@@ -22,14 +23,22 @@ def create_db_engine(settings: DatabaseSettings, *, io_timeout: int = 30, **pool
         pool_recycle=3600,
         # Parameters can carry paths, messages and token hashes; never in error text or logs.
         hide_parameters=True,
-        connect_args={
-            "connect_timeout": 2,
-            "read_timeout": io_timeout,
-            "write_timeout": io_timeout,
-            "init_command": "SET time_zone = '+00:00'",
-        },
+        connect_args=connect_args(settings, io_timeout),
         **pool,
     )
+
+
+def connect_args(settings: DatabaseSettings, io_timeout: int) -> dict[str, Any]:
+    """PyMySQL options. With DB_SSL, TLS uses the system CAs and checks the server's name."""
+    args: dict[str, Any] = {
+        "connect_timeout": 2,
+        "read_timeout": io_timeout,
+        "write_timeout": io_timeout,
+        "init_command": "SET time_zone = '+00:00'",
+    }
+    if settings.db_ssl:
+        args["ssl"] = ssl.create_default_context()
+    return args
 
 
 def get_session(request: Request) -> Iterator[Session]:

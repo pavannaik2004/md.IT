@@ -1,0 +1,31 @@
+# What every environment shares (PRD 10.2). Overlays add the database, blob storage,
+# environment-specific settings and the Secret `mdit-secrets`.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mdit
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: mdit
+
+resources:
+  - namespace.yaml
+  - backend.yaml
+  - frontend.yaml
+  - migrate-job.yaml
+  - gateway.yaml
+
+# Non-secret settings (PRD 10.4). Generated, so a changed value gets a new name and the
+# Deployments that use it roll. Overlays add DB_HOST and PUBLIC_BASE_URL.
+configMapGenerator:
+  - name: mdit-config
+    literals:
+      - DB_PORT=3306
+      - DB_NAME=mdit
+      - DB_USER=mdit
+      - DB_SSL=false
+      - BLOB_CONTAINER=mdit-blobs
+      - LOG_LEVEL=INFO
+      - SESSION_DAYS=30
+      - COOKIE_SECURE=true

@@ -1,0 +1,8 @@
+# Cluster add-on, applied by scripts/k8s_local.sh after Envoy Gateway is installed. Kept out
+# of the namespaced kustomization because a GatewayClass belongs to the whole cluster.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eg
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
