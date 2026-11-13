@@ -21,6 +21,8 @@ class DatabaseSettings(BaseSettings):
     db_name: str = "mdit"
     db_user: str = "mdit"
     db_password: SecretStr
+    # Azure Database for MySQL requires TLS; Compose's and the local cluster's MySQL don't.
+    db_ssl: bool = False
 
 
 class Settings(DatabaseSettings):
