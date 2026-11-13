@@ -9,13 +9,17 @@ set -eu
 ENVOY_GATEWAY_VERSION=v1.9.3
 CONTEXT=docker-desktop
 NS=mdit
-BASE_URL=http://localhost
+# `smoke` can check another deployment: MDIT_BASE_URL=https://... (scripts/azure.sh smoke).
+BASE_URL=${MDIT_BASE_URL:-http://localhost}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OVERLAY="$ROOT/k8s/overlays/local"
+KUBE_CONTEXT=$CONTEXT
 
 k() { kubectl --context "$CONTEXT" "$@"; }
 say() { printf '\n== %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+# wait_for_job, shared with scripts/k8s_deploy.sh.
+. "$ROOT/scripts/lib/k8s.sh"
 
 check_cluster() {
   kubectl config get-contexts -o name 2>/dev/null | grep -qx "$CONTEXT" \
@@ -56,28 +60,6 @@ ensure_secret_file() {
   fi
 }
 
-wait_for_job() {
-  # kubectl wait can't wait for "complete or failed", so poll both.
-  i=0
-  while [ $i -lt 200 ]; do
-    succeeded=$(k -n "$NS" get job mdit-migrate -o jsonpath='{.status.succeeded}' 2>/dev/null || true)
-    failed=$(k -n "$NS" get job mdit-migrate \
-      -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || true)
-    [ "$succeeded" = "1" ] && return 0
-    if [ "$failed" = "True" ]; then
-      k -n "$NS" logs job/mdit-migrate --tail=30 >&2 || true
-      die "the migration Job failed (logs above)"
-    fi
-    i=$((i + 1))
-    # Every ~30 s, show what the pod is doing (Pending, ImagePullBackOff, Error and retrying...).
-    if [ $((i % 10)) -eq 0 ]; then
-      k -n "$NS" get pods -l app.kubernetes.io/name=migrate --no-headers 2>/dev/null || true
-    fi
-    sleep 3
-  done
-  die "the migration Job didn't finish in 10 minutes"
-}
-
 not_reachable() {
   k -n "$NS" get pods >&2 || true
   die "$BASE_URL/api/health/ready isn't 200 after 60 s. If the pods above are Running, port 80 may belong to another server (IIS, Skype...): 'netstat -ano | findstr :80'"
@@ -106,7 +88,7 @@ up() {
   fi
 
   say "Waiting for migrations (retries while MySQL starts; ~1-2 min the first time)"
-  wait_for_job
+  wait_for_job "$NS" mdit-migrate
 
   say "Rolling out backend and frontend"
   # The local tag never changes, so restart to pick up a rebuilt image.
