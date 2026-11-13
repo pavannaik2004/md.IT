@@ -85,3 +85,65 @@ spec:
       backendRefs:
         - name: frontend
           port: 80
+---
+# Envoy reads each API request in full before passing it on: bodies over 6 MiB get 413 at the
+# edge (as Compose's client_max_body_size 6m), and the backend never waits on a slow upload.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: api
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: api
+  requestBuffer:
+    limit: 6Mi
+---
+# A route takes one policy, so the limited routes repeat the buffer. Limits count per client
+# address (Distinct) in each Envoy replica.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: api-signin
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: api-signin
+  requestBuffer:
+    limit: 6Mi
+  rateLimit:
+    type: Local
+    local:
+      rules:
+        - clientSelectors:
+            - sourceCIDR:
+                type: Distinct
+                value: 0.0.0.0/0
+          limit:
+            requests: 30
+            unit: Minute
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: api-upload
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: api-upload
+  requestBuffer:
+    limit: 6Mi
+  rateLimit:
+    type: Local
+    local:
+      rules:
+        - clientSelectors:
+            - sourceCIDR:
+                type: Distinct
+                value: 0.0.0.0/0
+          limit:
+            requests: 300
+            unit: Minute
