@@ -1,0 +1,37 @@
+# Let's Encrypt through cert-manager, HTTP-01 answered on the Gateway's http listener.
+# Staging for trial runs (untrusted, no weekly limit); prod for reviews (about 5 certificates a
+# week for the same name). infra/azure.env's ACME_ISSUER picks one for Certificate mdit-tls.
+# No e-mail: the certificates live for a day (spec), so expiry reminders don't matter.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-staging-account
+    solvers:
+      - http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: mdit
+                kind: Gateway
+                sectionName: http
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod-account
+    solvers:
+      - http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: mdit
+                kind: Gateway
+                sectionName: http

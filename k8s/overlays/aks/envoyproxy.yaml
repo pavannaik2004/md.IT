@@ -1,0 +1,26 @@
+# How Envoy Gateway runs this Gateway's proxy on AKS.
+# - The DNS label gives the public IP the name mdit.centralindia.cloudapp.azure.com (P-120);
+#   keep it equal to the host in PUBLIC_BASE_URL (kustomization.yaml).
+# - externalTrafficPolicy is left at Envoy Gateway's default, Local, so the proxy sees client
+#   addresses and the per-client sign-in rate limit works.
+# - Smaller requests than the defaults so everything fits one Standard_B2s node.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: mdit-proxy
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        annotations:
+          service.beta.kubernetes.io/azure-dns-label-name: mdit
+      envoyDeployment:
+        replicas: 1
+        container:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi

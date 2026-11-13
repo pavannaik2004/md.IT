@@ -18,4 +18,7 @@ RUN set -eu; \
     echo "${KUBECTL_SHA256}  /usr/local/bin/kubectl" | sha256sum -c -; \
     chmod +x /usr/local/bin/kubectl
 
+# PyYAML for scripts/check_aks_overlay.py (the Azure CLI's own Python is separate).
+RUN tdnf install -y python3-pyyaml && tdnf clean all
+
 WORKDIR /work

@@ -1,0 +1,20 @@
+# Plain HTTP → HTTPS. cert-manager's challenge route (exact path under
+# /.well-known/acme-challenge/) is more specific than this prefix, so it still wins.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-redirect
+spec:
+  parentRefs:
+    - name: mdit
+      sectionName: http
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
