@@ -8,6 +8,8 @@ on:
       - 'gateway/**'
       - 'mysql/**'
       - 'docker-compose.yml'
+      - 'k8s/**'
+      - 'scripts/k8s_local.sh'
       - '.github/workflows/ci.yml'
 
 permissions:
@@ -24,6 +26,7 @@ jobs:
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
+      k8s: ${{ steps.filter.outputs.k8s }}
     steps:
       - uses: dorny/paths-filter@v4
         id: filter
@@ -38,6 +41,10 @@ jobs:
               - 'mysql/**'
               - 'scripts/**'
               - 'docker-compose.yml'
+              - '.github/workflows/ci.yml'
+            k8s:
+              - 'k8s/**'
+              - 'scripts/k8s_local.sh'
               - '.github/workflows/ci.yml'
 
   frontend:
@@ -120,3 +127,21 @@ jobs:
       - name: Stop
         if: always()
         run: docker compose down -v
+
+  k8s:
+    needs: changes
+    if: needs.changes.outputs.k8s == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Render the local overlay
+        run: |
+          cp k8s/overlays/local/secret.example.env k8s/overlays/local/secret.env
+          kubectl kustomize k8s/overlays/local > rendered.yaml
+          kubectl kustomize k8s/base > /dev/null
+      - name: No dev login, no latest tag (P-058, PRD 11)
+        run: |
+          if grep -rn 'DEV_LOGIN' rendered.yaml k8s; then exit 1; fi
+          if grep -nE 'image: [^ ]*:latest$' rendered.yaml; then exit 1; fi
+      - name: Script syntax
+        run: sh -n scripts/k8s_local.sh

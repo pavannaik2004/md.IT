@@ -61,6 +61,10 @@ To try sync by hand, open http://localhost:8080 in two browser profiles (or a no
 
 `python scripts/api_smoke.py http://localhost:8080` checks the whole version flow against a running stack: two cookie jars sign in as one dev user, one saves versions with an image, the other downloads them and checks their hashes, a stale save is refused, and deleting the account signs both out. CI runs it on every pull request.
 
+## Kubernetes (local)
+
+The same images run on Docker Desktop's Kubernetes (turn it on in Settings → Kubernetes, kubeadm mode): `scripts/k8s_local.sh up`, then http://localhost. `scripts/k8s_local.sh smoke` checks it and `down` removes it. See [k8s/README.md](k8s/README.md).
+
 ## Status
 
 Phase 1 (local editor) complete: projects, folders and documents stored in this browser; CodeMirror editor; live preview; split/editor/preview modes; autosave.
@@ -74,3 +78,5 @@ Phase 4 (backend foundation) complete: FastAPI service with liveness (`/api/heal
 Phase 5a (login and versions API) complete: sign-in with GitHub, Google or a development-only dev login, server-side sessions in an httpOnly cookie, CSRF protection, and an API for projects, documents, per-document versions with conflict detection (409), content-addressed blobs owned per user, and account deletion. API docs at http://localhost:8080/api/docs.
 
 Phase 5b (versions in the browser) built: an account control in the toolbar (sign in, sign out, delete account), **Save version** with an optional message (Ctrl/Cmd+Shift+S), a **History** tab listing a document's versions with a read-only viewer (Restore, Delete), a conflict dialog when another browser saved first (**Load latest** or **Save mine as a copy**), and an **In your account** section on the project list that downloads a cloud project into a new browser. Everything still works signed out or offline. See `context.md` for progress.
+
+Phase 6 (Kubernetes locally) built: Kustomize manifests in `k8s/` (backend and frontend Deployments with probes, a migration Job, in-cluster MySQL and Azurite for the local cluster), routing through the Gateway API on Envoy Gateway with a 6 MiB body limit and rate limits on sign-in and uploads, and `scripts/k8s_local.sh` to deploy and check it.
