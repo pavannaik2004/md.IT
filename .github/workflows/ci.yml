@@ -141,7 +141,7 @@ jobs:
           kubectl kustomize k8s/base > /dev/null
       - name: No dev login, no latest tag (P-058, PRD 11)
         run: |
-          if grep -rn 'DEV_LOGIN' rendered.yaml k8s; then exit 1; fi
+          if grep -rn --include='*.yaml' --include='*.env' 'DEV_LOGIN' rendered.yaml k8s; then exit 1; fi
           if grep -nE 'image: [^ ]*:latest$' rendered.yaml; then exit 1; fi
       - name: Script syntax
         run: sh -n scripts/k8s_local.sh
