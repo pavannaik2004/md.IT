@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Route, Routes } from 'react-router';
 import { AuthProvider, LoginErrorNotice } from '../auth';
+import { Landing } from '../landing';
 import { MissingPage } from './MissingPage';
 import { ProjectList } from './ProjectList';
 import { requestPersistentStorage } from './storage';
@@ -17,7 +18,8 @@ export function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<ProjectList />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/projects" element={<ProjectList />} />
         <Route path="/p/:projectId" element={<Workspace />} />
         <Route path="/p/:projectId/d/:docId" element={<Workspace />} />
         <Route path="*" element={<MissingPage title="This page doesn’t exist" text="Check the address, or go back to your projects." />} />

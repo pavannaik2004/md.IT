@@ -189,7 +189,8 @@ describe('Workspace', () => {
     const user = userEvent.setup();
     const { project, doc } = await projectWithDocument();
     renderAt(`/p/${project.id}/d/${doc.id}`);
-    await user.click(await screen.findByRole('button', { name: 'Actions for Intro.md' }));
+    // The tree can take over a second to appear under the full parallel run (seen 3 times in 6), so wait longer for it.
+    await user.click(await screen.findByRole('button', { name: 'Actions for Intro.md' }, { timeout: 5000 }));
     await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
     await user.click(screen.getByRole('button', { name: 'Delete document' }));
     expect(await screen.findByText('No document open')).toBeInTheDocument();

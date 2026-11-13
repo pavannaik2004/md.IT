@@ -30,7 +30,9 @@ class MdItDatabase extends Dexie {
   settings!: EntityTable<Setting, 'key'>;
 
   constructor() {
-    super('mdit');
+    // No query cache (P-104): with Dexie 4's default cache, a live query mounted again after a change made while it was
+    // unmounted (link a project to the cloud, go back to the list) kept the result from before the change.
+    super('mdit', { cache: 'disabled' });
     this.version(1).stores({
       projects: 'id, updatedAt',
       folders: 'id, projectId, [projectId+parentFolderId]',

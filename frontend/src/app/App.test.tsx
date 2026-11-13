@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createApi, setApi } from '../api';
-import { clearDatabase, setSetting, SETTINGS } from '../store';
+import { clearDatabase, createProject, setSetting, SETTINGS } from '../store';
 import { createFakeApi } from '../test/fakeApi';
 import { App } from './App';
 
@@ -13,9 +13,22 @@ beforeEach(async () => {
 });
 
 describe('App', () => {
-  it('shows the project list at /', async () => {
+  it('shows the landing page at /', async () => {
     render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>);
+    expect(await screen.findByText('A calm place to write technical documents.')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Open workspace' })).toBeInTheDocument();
+  });
+
+  it('shows the project list at /projects', async () => {
+    render(<MemoryRouter initialEntries={['/projects']}><App /></MemoryRouter>);
     expect(await screen.findByRole('heading', { name: 'Projects' })).toBeInTheDocument();
+  });
+
+  it('shows the landing page at / on every visit, with a way back to the projects', async () => {
+    await createProject('OS');
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>);
+    expect(await screen.findByText('A calm place to write technical documents.')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Your projects' })).toBeInTheDocument();
   });
 
   it('explains unknown paths', async () => {
@@ -43,7 +56,7 @@ describe('App', () => {
     fake.projects.set('p-cloud', { id: 'p-cloud', name: 'Thesis', created_at: '2026-10-01T09:00:00.000Z' });
     fake.documents.set('d-cloud', { id: 'd-cloud', project_id: 'p-cloud', path: 'Chapter.md', created_at: '2026-10-01T09:00:00.000Z', next_number: 1 });
     fake.addVersion('d-cloud', '# Chapter one');
-    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={['/projects']}><App /></MemoryRouter>);
     await userEvent.click(await screen.findByRole('button', { name: 'Download Thesis' }));
     expect(await screen.findByText('Downloaded 1 document.')).toBeInTheDocument();
     expect(await screen.findByText('Chapter.md')).toBeInTheDocument();

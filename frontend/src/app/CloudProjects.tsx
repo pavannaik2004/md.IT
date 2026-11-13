@@ -5,7 +5,7 @@ import { plural } from '../lib/text';
 import { formatRelativeTime } from '../lib/time';
 import { StoreError, useProjectSummaries, userMessage } from '../store';
 import { downloadProject, listCloudProjects } from '../sync';
-import { Button, Callout } from '../ui';
+import { Button, Callout, Icon } from '../ui';
 
 type Listing = { status: 'loading' } | { status: 'error' } | { status: 'ready'; projects: ProjectOut[] };
 
@@ -56,7 +56,12 @@ export function CloudProjects({ onDownloaded }: CloudProjectsProps) {
   return (
     <section className="cloud-projects" aria-labelledby="cloud-projects-title">
       <h2 id="cloud-projects-title">In your account</h2>
-      {listing.status === 'loading' && <div className="cloud-projects-busy" aria-busy="true" />}
+      {listing.status === 'loading' && (
+        <div className="cloud-projects-busy" aria-busy="true">
+          <span className="project-tile" />
+          <span className="cloud-projects-skeleton" />
+        </div>
+      )}
       {listing.status === 'error' && <Callout tone="warning">Couldn’t load your account’s projects.</Callout>}
       {error && <Callout tone="danger">{error}</Callout>}
       {listing.status === 'ready' && shown.length === 0 && <p className="cloud-projects-empty">Everything in your account is in this browser.</p>}
@@ -64,10 +69,15 @@ export function CloudProjects({ onDownloaded }: CloudProjectsProps) {
         <ul className="project-list">
           {shown.map((project) => (
             <li key={project.id} className="project-row cloud-project-row">
-              <span className="project-open">
-                <span className="project-name">{project.name}</span>
-                <span className="project-meta">
-                  {plural(project.document_count, 'document')} · saved {formatRelativeTime(Date.parse(project.created_at))}
+              <span className="project-open is-static">
+                <span className="project-tile" aria-hidden="true">
+                  <Icon name="cloud" />
+                </span>
+                <span className="project-text">
+                  <span className="project-name">{project.name}</span>
+                  <span className="project-meta">
+                    {plural(project.document_count, 'document')} · saved {formatRelativeTime(Date.parse(project.created_at))}
+                  </span>
                 </span>
               </span>
               <Button

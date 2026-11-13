@@ -12,3 +12,7 @@
   .editor-toolbar-wide { display: none; }
   .editor-toolbar-more { display: flex; }
 }
+/* A split pane on a 1440px screen is ~590px: a narrower style menu keeps Find on the same row. */
+@container (max-width: 620px) {
+  .editor-toolbar-style .md-btn { min-width: 100px; }
+}

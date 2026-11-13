@@ -12,7 +12,7 @@ export function SearchBox({ value, onChange }: { value: string; onChange: (value
         id={SEARCH_INPUT_ID}
         type="search"
         icon="search"
-        placeholder="Search project"
+        placeholder="Search"
         aria-label="Search project"
         shortcut={value ? undefined : SEARCH_SHORTCUT}
         value={value}
