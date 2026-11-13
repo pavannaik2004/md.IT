@@ -1,0 +1,35 @@
+name: Infra
+
+# Static checks only: GitHub can't sign in to Azure (Contributor role, P-116), so plan and
+# apply run from scripts/azure.sh on the user's machine.
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.17.1
+          terraform_wrapper: false
+      - name: Format
+        run: terraform -chdir=infra/terraform fmt -check -recursive -diff
+      - name: Validate
+        run: |
+          terraform -chdir=infra/terraform init -backend=false -lockfile=readonly -input=false
+          terraform -chdir=infra/terraform validate
+      - name: Scripts
+        run: |
+          for f in infra/*.sh infra/tests/*.sh; do sh -n "$f"; done
+          shellcheck -x infra/*.sh infra/tests/*.sh
+          python3 -m py_compile infra/tests/check_plan.py
+      - name: Library guards
+        run: sh infra/tests/azure_tools_test.sh

@@ -1,0 +1,80 @@
+name: Deploy
+
+# Merge to main → build both images, push them to ACR tagged with the commit SHA, migrate, roll
+# out (PRD 11). Azure exists only around reviews (P-119): with no cluster, the run ends green
+# with a notice. Credentials are prod-environment secrets written by scripts/azure.sh up; no
+# Azure sign-in from GitHub (P-116). Rollback: run this workflow by hand with an earlier commit.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'k8s/**'
+      - 'scripts/k8s_deploy.sh'
+      - 'scripts/lib/k8s.sh'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit SHA to deploy (empty = the branch you run it on)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          CLUSTER: ${{ vars.MDIT_CLUSTER }}
+        run: |
+          if [ "$CLUSTER" = up ]; then
+            echo run=true >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Nothing is deployed on Azure right now, so nothing to update. Run scripts/azure.sh up to build it (infra/README.md)."
+            echo run=false >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+      url: https://mdit.centralindia.cloudapp.azure.com
+    env:
+      ACR: ${{ vars.ACR_LOGIN_SERVER }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - name: Sign in to ACR
+        env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+        run: printf '%s' "$ACR_PASSWORD" | docker login "$ACR" -u "$ACR_USERNAME" --password-stdin
+      - name: Build and push images tagged with the commit
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "SHA=$sha" >> "$GITHUB_ENV"
+          for app in backend frontend; do
+            docker build -t "$ACR/mdit-$app:$sha" "$app"
+            docker push "$ACR/mdit-$app:$sha"
+          done
+      - name: Migrate and roll out
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          umask 077
+          printf '%s' "$KUBECONFIG_B64" | base64 -d > "$RUNNER_TEMP/kubeconfig"
+          KUBECONFIG="$RUNNER_TEMP/kubeconfig" sh scripts/k8s_deploy.sh k8s/overlays/aks "$ACR" "$SHA"
