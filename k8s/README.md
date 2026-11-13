@@ -65,4 +65,4 @@ kubectl -n mdit set env deployment/backend DEV_LOGIN-
 
 ## Phase 7 (AKS)
 
-An `overlays/aks` adds: `DB_HOST` of the Azure MySQL server with `DB_SSL=true`, `PUBLIC_BASE_URL` with the public host name, the ACR image names tagged with the commit SHA, an HTTPS listener with a cert-manager certificate, and the Secret created by the deploy workflow. Envoy's Service needs `externalTrafficPolicy: Local` there, or every client shares one address and one rate limit.
+An `overlays/aks` adds: `DB_HOST` of the Azure MySQL server with `DB_SSL=true`, `PUBLIC_BASE_URL` with the public host name, the ACR image names tagged with the commit SHA, an HTTPS listener with a cert-manager certificate, and the Secret created by the deploy workflow. Envoy Gateway already gives its Service `externalTrafficPolicy: Local`, which keeps client addresses for the rate limits; keep that default. The app routes will need `sectionName` once there is an HTTPS listener, plus an HTTP→HTTPS redirect.

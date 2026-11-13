@@ -17,6 +17,13 @@ configMapGenerator:
       - DB_HOST=mysql
       - PUBLIC_BASE_URL=http://localhost
 
+# The images `docker compose build` makes; AKS names ACR images tagged with the commit SHA.
+images:
+  - name: mdit-backend
+    newTag: local
+  - name: mdit-frontend
+    newTag: local
+
 # secret.env is git-ignored; scripts/k8s_local.sh up creates it from secret.example.env.
 secretGenerator:
   - name: mdit-secrets

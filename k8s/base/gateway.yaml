@@ -31,6 +31,9 @@ spec:
       backendRefs:
         - name: backend
           port: 8000
+      # Envoy's default is 15 s; Compose's nginx allows 60 s (account deletion sweeps blobs).
+      timeouts:
+        request: 60s
 ---
 # Sign-in redirects: rate-limited tightly per client (PRD 12).
 apiVersion: gateway.networking.k8s.io/v1
@@ -51,6 +54,9 @@ spec:
       backendRefs:
         - name: backend
           port: 8000
+      # Envoy's default is 15 s; Compose's nginx allows 60 s (account deletion sweeps blobs).
+      timeouts:
+        request: 60s
 ---
 # Image uploads: one request per image in a save, so the limit is generous.
 apiVersion: gateway.networking.k8s.io/v1
@@ -69,6 +75,9 @@ spec:
       backendRefs:
         - name: backend
           port: 8000
+      # Envoy's default is 15 s; Compose's nginx allows 60 s (account deletion sweeps blobs).
+      timeouts:
+        request: 60s
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

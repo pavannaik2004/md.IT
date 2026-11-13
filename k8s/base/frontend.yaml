@@ -19,6 +19,10 @@ spec:
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false
+      # nginx starts as root to bind :80 (the image is unchanged); seccomp still applies.
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: frontend
           image: mdit-frontend

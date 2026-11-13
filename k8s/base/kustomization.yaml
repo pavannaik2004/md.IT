@@ -29,9 +29,3 @@ configMapGenerator:
       - LOG_LEVEL=INFO
       - SESSION_DAYS=30
       - COOKIE_SECURE=true
-
-images:
-  - name: mdit-backend
-    newTag: local
-  - name: mdit-frontend
-    newTag: local

@@ -139,9 +139,23 @@ jobs:
           cp k8s/overlays/local/secret.example.env k8s/overlays/local/secret.env
           kubectl kustomize k8s/overlays/local > rendered.yaml
           kubectl kustomize k8s/base > /dev/null
-      - name: No dev login, no latest tag (P-058, PRD 11)
+      - name: No dev login (P-058)
         run: |
           if grep -rn --include='*.yaml' --include='*.env' 'DEV_LOGIN' rendered.yaml k8s; then exit 1; fi
-          if grep -nE 'image: [^ ]*:latest$' rendered.yaml; then exit 1; fi
-      - name: Script syntax
-        run: sh -n scripts/k8s_local.sh
+      - name: Every image has an explicit tag or digest, never latest (PRD 11)
+        run: |
+          status=0
+          for img in $(grep -oE 'image: *"?[^" ]+' rendered.yaml | sed -E 's/image: *"?//'); do
+            name=${img##*/}
+            case "$img" in *@sha256:*) continue ;; esac
+            case "$name" in
+              *:latest) echo "latest tag: $img"; status=1 ;;
+              *:*) ;;
+              *) echo "no tag: $img"; status=1 ;;
+            esac
+          done
+          exit $status
+      - name: Script checks
+        run: |
+          sh -n scripts/k8s_local.sh
+          shellcheck scripts/k8s_local.sh

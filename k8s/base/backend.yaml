@@ -67,7 +67,7 @@ spec:
             capabilities:
               drop: ["ALL"]
           volumeMounts:
-            # Large request bodies spool to temporary files.
+            # Python's tempfile and any library scratch space; the root filesystem is read-only.
             - name: tmp
               mountPath: /tmp
       volumes:

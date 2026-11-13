@@ -69,9 +69,18 @@ wait_for_job() {
       die "the migration Job failed (logs above)"
     fi
     i=$((i + 1))
+    # Every ~30 s, show what the pod is doing (Pending, ImagePullBackOff, Error and retrying...).
+    if [ $((i % 10)) -eq 0 ]; then
+      k -n "$NS" get pods -l app.kubernetes.io/name=migrate --no-headers 2>/dev/null || true
+    fi
     sleep 3
   done
   die "the migration Job didn't finish in 10 minutes"
+}
+
+not_reachable() {
+  k -n "$NS" get pods >&2 || true
+  die "$BASE_URL/api/health/ready isn't 200 after 60 s. If the pods above are Running, port 80 may belong to another server (IIS, Skype...): 'netstat -ano | findstr :80'"
 }
 
 up() {
@@ -86,8 +95,15 @@ up() {
 
   say "Applying k8s/overlays/local"
   # Jobs can't be changed once created; a new one runs the migrations of the new image.
-  k -n "$NS" delete job mdit-migrate --ignore-not-found --wait >/dev/null 2>&1 || true
+  # Foreground: the old Job's pod is gone too, so two migrations never overlap (P-051).
+  k -n "$NS" delete job mdit-migrate --ignore-not-found --cascade=foreground --wait >/dev/null 2>&1 || true
   k apply -k "$OVERLAY"
+  # A dev login turned on by hand for api_smoke.py (k8s/README.md) isn't in the manifests, so
+  # apply keeps it; take it off here (P-058).
+  if k -n "$NS" get deployment backend -o jsonpath='{.spec.template.spec.containers[0].env[*].name}' | grep -qw DEV_LOGIN; then
+    say "Removing DEV_LOGIN left on the backend by hand"
+    k -n "$NS" set env deployment/backend DEV_LOGIN- >/dev/null
+  fi
 
   say "Waiting for migrations (retries while MySQL starts; ~1-2 min the first time)"
   wait_for_job
@@ -103,9 +119,9 @@ up() {
     die "the gateway got no address. Is port 80 on this machine taken (IIS, Skype, another server)? 'netstat -ano | findstr :80'"
   fi
   i=0
-  until [ "$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL/api/health/ready")" = "200" ]; do
+  until [ "$(status "$BASE_URL/api/health/ready")" = "200" ]; do
     i=$((i + 1))
-    [ $i -lt 30 ] || die "$BASE_URL/api/health/ready isn't 200 after 60 s"
+    [ $i -lt 30 ] || not_reachable
     sleep 2
   done
   say "md.IT is running at $BASE_URL"
@@ -121,11 +137,12 @@ check() {
   fi
 }
 
-status() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+# A time limit, so a server that accepts but never answers can't hang the script.
+status() { curl -s --max-time 10 -o /dev/null -w '%{http_code}' "$@" || true; }
 
 smoke() {
   check "landing page" 200 "$(status "$BASE_URL/")"
-  csp=$(curl -sI "$BASE_URL/" | grep -ci '^content-security-policy:' || true)
+  csp=$(curl -sI --max-time 10 "$BASE_URL/" | grep -ci '^content-security-policy:' || true)
   check "frontend's CSP header passes through" 1 "$csp"
   check "SPA deep link" 200 "$(status "$BASE_URL/projects")"
   check "liveness" 200 "$(status "$BASE_URL/api/health")"
