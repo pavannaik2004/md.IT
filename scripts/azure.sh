@@ -7,7 +7,8 @@
 #   scripts/azure.sh status       what exists, and whether the site answers
 #   scripts/azure.sh down [--yes] destroy everything billed (Terraform state stays)
 set -eu
-cd "$(dirname "$0")/.."
+# MDIT_SOURCE_ONLY=1: load the functions without running a command (infra/tests), from the repo root.
+[ "${MDIT_SOURCE_ONLY:-}" = 1 ] || cd "$(dirname "$0")/.."
 . scripts/lib/azure_tools.sh
 
 ENVOY_GATEWAY_VERSION=v1.9.3
@@ -24,14 +25,27 @@ repo() { gh repo view --json nameWithOwner -q .nameWithOwner; }
 # code <curl option or ""> <url>: the HTTP status ("000" when nothing answers).
 code() { curl -s --max-time 10 ${1:+"$1"} -o /dev/null -w '%{http_code}' "$2" || true; }
 
-# terraform <command> with the backend; on failure, show the end of its log and stop.
+# az_out <az args...>: the output without CRs. A failed call dies with the sign-in hint, so it is
+# never read as "no" or "nothing there" (final review I1). Use as x=$(az_out ...), so set -e stops.
+az_out() {
+  out=$(tools az "$@") ||
+    die "an Azure CLI call failed (az $1 $2). If your sign-in expired, run scripts/azure.sh login"
+  printf '%s' "$out" | tr -d '\r'
+}
+
+# terraform <command> with the backend; on failure, shows the end of its log and returns 1
+# (callers decide: up stops, down still reports what is left, final review I2).
 tf_run() {
   mkdir -p infra/.kube
-  tools terraform -chdir=infra/terraform init -input=false -no-color \
-    -backend-config=storage_account_name="$TFSTATE_ACCOUNT" > infra/.kube/terraform.log 2>&1 ||
-    { tail -20 infra/.kube/terraform.log >&2; die "terraform init failed"; }
-  tools terraform -chdir=infra/terraform "$@" -input=false -no-color -auto-approve > infra/.kube/terraform.log 2>&1 ||
-    { tail -30 infra/.kube/terraform.log >&2; die "terraform $1 failed (above)"; }
+  if ! tools terraform -chdir=infra/terraform init -input=false -no-color \
+    -backend-config=storage_account_name="$TFSTATE_ACCOUNT" > infra/.kube/terraform.log 2>&1; then
+    tail -20 infra/.kube/terraform.log >&2
+    return 1
+  fi
+  if ! tools terraform -chdir=infra/terraform "$@" -input=false -no-color -auto-approve > infra/.kube/terraform.log 2>&1; then
+    tail -30 infra/.kube/terraform.log >&2
+    return 1
+  fi
   grep -E '^(Apply|Destroy) complete' infra/.kube/terraform.log || true
 }
 
@@ -48,11 +62,12 @@ check_clean_tree() {
 }
 
 check_label() {
-  if [ "$(tools az group exists -n "$RG" | tr -d '\r')" = true ]; then return 0; fi
+  exists=$(az_out group exists -n "$RG")
+  if [ "$exists" = true ]; then return 0; fi
   label=$(site_label)
-  free=$(tools az rest --method get --url \
+  free=$(az_out rest --method get --url \
     "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/providers/Microsoft.Network/locations/$LOCATION/CheckDnsNameAvailability?domainNameLabel=$label&api-version=2024-05-01" \
-    --query available -o tsv | tr -d '\r')
+    --query available -o tsv)
   [ "$free" = true ] ||
     die "the address $(site_host) is taken: pick another label in k8s/overlays/aks (PUBLIC_BASE_URL and envoyproxy.yaml) and update the OAuth callbacks"
 }
@@ -232,7 +247,7 @@ up() {
   check_label
 
   say "Terraform apply (AKS and MySQL take most of the time)"
-  tf_run apply
+  tf_run apply || die "terraform apply failed (above; full log: infra/.kube/terraform.log)"
 
   tools az aks get-credentials -g "$RG" -n "$AKS" --admin --file infra/.kube/config --overwrite-existing >/dev/null
   install_addons
@@ -265,22 +280,25 @@ down() {
   for s in $CI_SECRETS; do gh secret delete "$s" --env prod --repo "$r" >/dev/null 2>&1 || true; done
 
   say "Terraform destroy"
-  tf_run destroy
-  rm -rf infra/.kube
+  # A failed destroy must still report what is left, because it may still be billing.
+  destroyed=yes
+  tf_run destroy || destroyed=no
 
-  left=$(tools az group list --query "[?starts_with(name, 'mdit-') || starts_with(name, 'MC_mdit-')].name" -o tsv |
-    tr -d '\r' | grep -vx mdit-tfstate || true)
-  if [ -n "$left" ]; then
-    printf 'still in the subscription:\n%s\n' "$left" >&2
-    die "something survived the destroy: delete it in the portal or run down again"
-  fi
+  groups=$(az_out group list --query "[?starts_with(name, 'mdit-') || starts_with(name, 'MC_mdit-')].name" -o tsv)
+  left=$(printf '%s\n' "$groups" | grep -v -e '^$' -e '^mdit-tfstate$' || true)
+  if [ -n "$left" ]; then printf 'still in the subscription (may be billing):\n%s\n' "$left" >&2; fi
+  [ "$destroyed" = yes ] ||
+    die "terraform destroy failed (above; log kept in infra/.kube/terraform.log): run scripts/azure.sh down again"
+  [ -z "$left" ] || die "something survived the destroy: delete it in the portal or run down again"
+  rm -rf infra/.kube
   say "Nothing of md.IT is left except the Terraform state (mdit-tfstate)"
 }
 
 status() {
   load_config
   preflight
-  if [ "$(tools az group exists -n "$RG" | tr -d '\r')" != true ]; then
+  exists=$(az_out group exists -n "$RG")
+  if [ "$exists" != true ]; then
     echo "not deployed (scripts/azure.sh up builds it)"
     return 0
   fi
@@ -305,11 +323,13 @@ smoke() {
   fi
 }
 
-case "${1:-}" in
-  login) ensure_tools_image; tools az login --use-device-code --output none ;;
-  up) up ;;
-  down) down "${2:-}" ;;
-  status) status ;;
-  smoke) smoke ;;
-  *) echo "usage: $0 login | up | smoke | status | down [--yes]" >&2; exit 2 ;;
-esac
+if [ "${MDIT_SOURCE_ONLY:-}" != 1 ]; then
+  case "${1:-}" in
+    login) ensure_tools_image; tools az login --use-device-code --output none ;;
+    up) up ;;
+    down) down "${2:-}" ;;
+    status) status ;;
+    smoke) smoke ;;
+    *) echo "usage: $0 login | up | smoke | status | down [--yes]" >&2; exit 2 ;;
+  esac
+fi

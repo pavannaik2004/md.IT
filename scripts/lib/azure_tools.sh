@@ -56,7 +56,8 @@ load_config() {
 preflight() {
   docker info >/dev/null 2>&1 || die "Docker isn't running: start Docker Desktop and try again"
   ensure_tools_image
-  tools az account show --output none >/dev/null 2>&1 ||
+  # get-access-token, not `account show`: only a token request notices an expired sign-in.
+  tools az account get-access-token --output none >/dev/null 2>&1 ||
     die "not signed in to Azure (or the sign-in expired): run scripts/azure.sh login"
   if [ -n "${SUBSCRIPTION_ID:-}" ]; then
     tools az account set --subscription "$SUBSCRIPTION_ID" >/dev/null 2>&1 ||
