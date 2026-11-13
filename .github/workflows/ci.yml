@@ -9,7 +9,7 @@ on:
       - 'mysql/**'
       - 'docker-compose.yml'
       - 'k8s/**'
-      - 'scripts/k8s_local.sh'
+      - 'scripts/**'
       - '.github/workflows/ci.yml'
 
 permissions:
@@ -44,7 +44,9 @@ jobs:
               - '.github/workflows/ci.yml'
             k8s:
               - 'k8s/**'
-              - 'scripts/k8s_local.sh'
+              - 'scripts/*.sh'
+              - 'scripts/lib/**'
+              - 'scripts/check_aks_overlay.py'
               - '.github/workflows/ci.yml'
 
   frontend:
@@ -134,18 +136,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Render the local overlay
+      - name: Render the local and AKS overlays
         run: |
           cp k8s/overlays/local/secret.example.env k8s/overlays/local/secret.env
           kubectl kustomize k8s/overlays/local > rendered.yaml
+          kubectl kustomize k8s/overlays/aks > rendered-aks.yaml
           kubectl kustomize k8s/base > /dev/null
+      - name: AKS overlay matches the Phase 7 spec
+        run: |
+          python3 -m pip install --quiet pyyaml==6.0.3
+          python3 scripts/check_aks_overlay.py rendered-aks.yaml
       - name: No dev login (P-058)
         run: |
-          if grep -rn --include='*.yaml' --include='*.env' 'DEV_LOGIN' rendered.yaml k8s; then exit 1; fi
+          if grep -rn --include='*.yaml' --include='*.env' 'DEV_LOGIN' rendered.yaml rendered-aks.yaml k8s infra; then exit 1; fi
       - name: Every image has an explicit tag or digest, never latest (PRD 11)
         run: |
           status=0
-          for img in $(grep -oE 'image: *"?[^" ]+' rendered.yaml | sed -E 's/image: *"?//'); do
+          # Image references never contain spaces, so word splitting is what we want.
+          # shellcheck disable=SC2013
+          for img in $(grep -hoE 'image: *"?[^" ]+' rendered.yaml rendered-aks.yaml | sed -E 's/image: *"?//'); do
             name=${img##*/}
             case "$img" in *@sha256:*) continue ;; esac
             case "$name" in
@@ -157,5 +166,5 @@ jobs:
           exit $status
       - name: Script checks
         run: |
-          sh -n scripts/k8s_local.sh
-          shellcheck scripts/k8s_local.sh
+          for f in scripts/*.sh scripts/lib/*.sh; do sh -n "$f"; done
+          shellcheck -x scripts/*.sh scripts/lib/*.sh

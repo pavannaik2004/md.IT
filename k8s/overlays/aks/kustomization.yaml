@@ -1,0 +1,69 @@
+# AKS (Phase 7): the base plus HTTPS, Azure settings and the registry pull secret.
+# MySQL and blobs are Azure services (infra/terraform). scripts/azure.sh creates, before any
+# deploy: namespace mdit, ConfigMap mdit-azure (DB_HOST), Secret mdit-secrets, Secret acr-pull
+# and Certificate mdit-tls. CI's ServiceAccount may only touch namespace mdit (P-116), so this
+# overlay holds no Namespace and no Secret.
+# The site's address is defined here once (P-120); scripts read it from PUBLIC_BASE_URL.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mdit
+
+resources:
+  - ../../base
+  - redirect.yaml
+  - envoyproxy.yaml
+  - issuers.yaml
+  - pull-secret.yaml
+
+configMapGenerator:
+  - name: mdit-config
+    behavior: merge
+    literals:
+      - DB_SSL=true
+      - PUBLIC_BASE_URL=https://mdit.centralindia.cloudapp.azure.com
+
+# scripts/k8s_deploy.sh sets <acr>/mdit-*:<git sha>; this tag is never deployed as is.
+images:
+  - name: mdit-backend
+    newTag: set-by-deploy
+  - name: mdit-frontend
+    newTag: set-by-deploy
+
+patches:
+  - path: gateway-https.yaml
+  # The namespace exists before any deploy (azure.sh); applying it would need cluster rights.
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: mdit
+  # The app routes serve HTTPS only; plain HTTP gets the redirect in redirect.yaml.
+  - target:
+      kind: HTTPRoute
+      name: ^(api|api-signin|api-upload|web)$
+    patch: |-
+      - op: add
+        path: /spec/parentRefs/0/sectionName
+        value: https
+  # DB_HOST is the MySQL server's FQDN, which has a random suffix: azure.sh writes it into
+  # ConfigMap mdit-azure. Listed after mdit-config, so its value wins.
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/envFrom/-
+        value:
+          configMapRef:
+            name: mdit-azure
+  - target:
+      kind: Job
+      name: mdit-migrate
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/envFrom/-
+        value:
+          configMapRef:
+            name: mdit-azure

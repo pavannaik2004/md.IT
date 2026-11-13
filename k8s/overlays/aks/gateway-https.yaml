@@ -1,0 +1,30 @@
+# HTTPS on 443 with the Let's Encrypt certificate (Secret mdit-tls, from the Certificate that
+# scripts/azure.sh creates). Port 80 stays for the ACME HTTP-01 challenge and the redirect.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: mdit
+spec:
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: mdit-proxy
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: mdit-tls
+      allowedRoutes:
+        namespaces:
+          from: Same

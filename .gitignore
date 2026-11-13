@@ -21,3 +21,7 @@ __pycache__/
 .ruff_cache/
 # Real values for the Kubernetes overlays (k8s/overlays/*/secret.example.env shows the keys).
 k8s/**/secret.env
+# Phase 7: Azure config, cluster credentials, the deploy wrapper (P-116).
+infra/azure.env
+infra/.kube/
+k8s/.deploy/
